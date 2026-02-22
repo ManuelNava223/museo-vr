@@ -1,0 +1,1332 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Museo VR — Historia de Mexico</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <script src="https://aframe.io/releases/1.4.0/aframe.min.js"></script>
+  <style>
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background:#0a0000; font-family:'Georgia',serif; overflow:hidden; }
+    #splash {
+      position:fixed; inset:0; z-index:9999;
+      background: radial-gradient(ellipse at center, #2a0800 0%, #0a0000 100%);
+      display:flex; flex-direction:column; align-items:center; justify-content:center;
+      color:#f5d98b; text-align:center; padding:2rem;
+    }
+    #splash .eagle { font-size:clamp(5rem,12vw,10rem); animation:float 3s ease-in-out infinite; }
+    @keyframes float { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-12px)} }
+    #splash h1 {
+      font-size:clamp(2rem,5vw,3.5rem); margin:.5rem 0;
+      text-shadow:0 0 40px #f5a623, 0 0 80px #8b1a00;
+      letter-spacing:.08em;
+    }
+    #splash .sub { font-size:clamp(.9rem,2vw,1.1rem); color:#c8a86b; margin:.5rem 0 2rem; letter-spacing:.15em; }
+    #btn-enter {
+      padding:.9rem 3rem; background:#8b1a00; border:2px solid #f5a623;
+      color:#f5d98b; font-size:1.1rem; font-family:'Georgia',serif;
+      cursor:pointer; letter-spacing:.15em; text-transform:uppercase;
+      border-radius:2px; transition:all .3s;
+    }
+    #btn-enter:hover { background:#f5a623; color:#0a0000; transform:scale(1.05); }
+    #room-name {
+      position:fixed; top:16px; left:50%; transform:translateX(-50%);
+      background:rgba(10,0,0,.9); border:1px solid #f5a623;
+      color:#f5d98b; padding:7px 22px; border-radius:3px;
+      font-size:.95rem; letter-spacing:.06em; z-index:100;
+      display:none; text-align:center; max-width:90vw; white-space:nowrap;
+    }
+    #controls {
+      position:fixed; bottom:14px; left:50%; transform:translateX(-50%);
+      background:rgba(10,0,0,.85); border:1px solid #c8a86b;
+      color:#c8a86b; padding:7px 18px; border-radius:3px;
+      font-size:.78rem; z-index:100; display:none; text-align:center;
+    }
+    #minimap {
+      position:fixed; top:60px; right:14px;
+      background:rgba(10,0,0,.9); border:1px solid #c8a86b;
+      color:#f5d98b; padding:10px 14px; border-radius:3px;
+      font-size:.7rem; z-index:100; display:none; line-height:1.9;
+      max-width:220px;
+    }
+    #minimap b { color:#f5a623; display:block; margin-bottom:4px; }
+    /* Panel de botones de navegacion */
+    #nav-panel {
+      position:fixed; bottom:80px; left:20px; z-index:200;
+      background:rgba(10,0,0,.9); border:2px solid #f5a623;
+      color:#f5d98b; padding:15px; border-radius:8px;
+      display:none; flex-direction:column; gap:8px; max-width:220px;
+      font-family:'Georgia',serif; box-shadow:0 0 20px rgba(245,166,35,0.3);
+    }
+    #nav-panel h3 { margin:0 0 8px; text-align:center; color:#f5a623; border-bottom:1px solid #c8a86b; padding-bottom:4px; }
+    .nav-btn {
+      background:#2a1000; border:1px solid #c8a86b; color:#f5d98b;
+      padding:8px 12px; text-align:left; cursor:pointer; border-radius:4px;
+      font-size:.9rem; transition:all .2s; width:100%;
+    }
+    .nav-btn:hover { background:#f5a623; color:#0a0000; border-color:#f5d98b; transform:scale(1.02); }
+    /* Modal de vitrina */
+    #vitrina-modal {
+      display:none; position:fixed; inset:0; z-index:9000;
+      background:rgba(0,0,0,0.82); align-items:center; justify-content:center;
+    }
+    #vitrina-modal.active { display:flex; }
+    #vitrina-card {
+      background: linear-gradient(145deg, #1a0a00, #2a1500);
+      border:2px solid #f5a623; border-radius:10px;
+      padding:28px 32px; max-width:480px; width:90%;
+      color:#f5d98b; font-family:'Georgia',serif; position:relative;
+      box-shadow:0 0 40px rgba(245,166,35,0.4);
+      animation: fadeIn .25s ease;
+    }
+    @keyframes fadeIn { from{opacity:0;transform:scale(0.92)} to{opacity:1;transform:scale(1)} }
+    #vitrina-card h2 { font-size:1.3rem; color:#f5a623; margin:0 0 6px; letter-spacing:.06em; }
+    #vitrina-card .fecha { font-size:.85rem; color:#c8a86b; margin-bottom:14px; letter-spacing:.1em; }
+    #vitrina-card img { width:100%; border-radius:6px; border:1px solid #c8a86b; margin-bottom:14px; object-fit:cover; max-height:220px; }
+    #vitrina-card .sin-img { width:100%; height:160px; background:#2a1500; border:1px dashed #c8a86b; border-radius:6px; margin-bottom:14px; display:flex; align-items:center; justify-content:center; font-size:2.5rem; }
+    #vitrina-card p { font-size:.95rem; line-height:1.65; color:#e8d4a0; margin:0; }
+    #vitrina-close {
+      position:absolute; top:12px; right:16px;
+      background:none; border:none; color:#f5a623;
+      font-size:1.5rem; cursor:pointer; line-height:1;
+    }
+    #vitrina-close:hover { color:#fff; }
+  </style>
+</head>
+<body>
+
+<div id="splash">
+  <div class="eagle">🦅</div>
+  <h1>MUSEO VIRTUAL<br>HISTORIA DE MEXICO</h1>
+  <p class="sub">1810 — 1876 - Experiencia VR Inmersiva</p>
+  <button id="btn-enter" onclick="entrar()"> ENTRAR AL MUSEO </button>
+</div>
+
+<div id="room-name">Sala 1 — Las 4 Etapas de la Independencia</div>
+<div id="controls">🖱 Mira alrededor - WASD / Flechas para moverte - Usa los BOTONES de la izquierda para cambiar de sala</div>
+<div id="minimap">
+  <b> SALAS DEL MUSEO</b>
+  1. 4 Etapas Independencia<br>
+  2. Logias Yorkinas/Escocesas<br>
+  3. Periodo Anarquico<br>
+  4. Conservadores vs Liberales<br>
+  5. Primer Imperio<br>
+  6. Constitucion de 1824<br>
+  7. Reformas de 1833<br>
+  8. Conflictos Internacionales<br>
+  9. Crisis Economica
+</div>
+<!-- Panel de botones de navegacion -->
+<div id="nav-panel">
+  <h3>🗂 IR A SALA:</h3>
+  <button class="nav-btn" onclick="irASala('sala1','Sala 1 — Las 4 Etapas de la Independencia')">1. 4 Etapas Independencia</button>
+  <button class="nav-btn" onclick="irASala('sala2','Sala 2 — Logias Yorkinas y Escocesas')">2. Logias Yorkinas/Escocesas</button>
+  <button class="nav-btn" onclick="irASala('sala3','Sala 3 — Periodo Anarquico 1821-1855')">3. Periodo Anarquico</button>
+  <button class="nav-btn" onclick="irASala('sala4','Sala 4 — Conservadores y Liberales')">4. Conservadores vs Liberales</button>
+  <button class="nav-btn" onclick="irASala('sala5','Sala 5 — Primer Imperio de Mexico')">5. Primer Imperio</button>
+  <button class="nav-btn" onclick="irASala('sala6','Sala 6 — Constitucion Federal de 1824')">6. Constitucion de 1824</button>
+  <button class="nav-btn" onclick="irASala('sala7','Sala 7 — Las Reformas de 1833')">7. Reformas de 1833</button>
+  <button class="nav-btn" onclick="irASala('sala8','Sala 8 — Conflictos Internacionales 1838-1848')">8. Conflictos Internacionales</button>
+  <button class="nav-btn" onclick="irASala('sala9','Sala 9 — Crisis Economica 1810-1876')">9. Crisis Economica</button>
+</div>
+
+<!-- MODAL VITRINA -->
+<div id="vitrina-modal" onclick="cerrarVitrina(event)">
+  <div id="vitrina-card">
+    <button id="vitrina-close" onclick="cerrarVitrina()">&#x2715;</button>
+    <h2 id="v-titulo"></h2>
+    <div class="fecha" id="v-fecha"></div>
+    <div id="v-img-wrap"></div>
+    <p id="v-desc"></p>
+    <p id="v-biblio" style="font-size:.78rem;color:#c8a86b;margin-top:12px;border-top:1px solid #5a3500;padding-top:10px;display:none"></p>
+  </div>
+</div>
+
+<script>
+  AFRAME.registerComponent('vitrina', {
+    schema: { id: {type: 'string'} },
+    init: function () {
+      var id = this.data.id;
+      var el = this.el;
+      // Listen on all child boxes too
+      el.addEventListener('click', function() {
+        abrirVitrina(id);
+      });
+      // Glow on hover
+      el.addEventListener('mouseenter', function() {
+        el.querySelectorAll('a-box[transparent]').forEach(function(b){
+          b.setAttribute('opacity','0.08');
+          b.setAttribute('color','#f5a623');
+        });
+      });
+      el.addEventListener('mouseleave', function() {
+        el.querySelectorAll('a-box[transparent]').forEach(function(b){
+          b.setAttribute('opacity','0');
+        });
+      });
+    }
+  });
+</script>
+<a-scene id="scene" style="display:none" vr-mode-ui="enabled:true" loading-screen="enabled:false"
+  background="color:#000000">
+
+  <!-- CAMARA GLOBAL UNICA (se mueve entre salas) -->
+  <a-entity id="camara-global" position="0 1.6 8">
+    <a-camera id="camara-principal" look-controls="pointerLockEnabled:true" wasd-controls="acceleration:25">
+      <a-cursor color="#f5a623" opacity="0.8" fuse="false" raycaster="objects:.clickable"></a-cursor>
+    </a-camera>
+  </a-entity>
+
+  <!-- ════════ SALA 1: LAS 4 ETAPAS DE LA INDEPENDENCIA ════════ -->
+  <a-entity id="sala1" position="0 0 0">
+   <a-sky src="techo2.jpg" rotation="0 -90 0"></a-sky>
+    <a-plane src="suelo1.jpg" repeat="4 4" rotation="-90 0 0" width="36" height="36" position="0 0 0" roughness="0.9"></a-plane>
+    <a-box color="#3d1500" width="36" height="0.3" depth="0.5" position="0 8 -18"></a-box>
+    <a-box color="#3d1500" width="36" height="0.3" depth="0.5" position="0 8 18"></a-box>
+
+    <!-- MUROS SALA 1 -->
+    <a-box src="pared1.jpg" width="36" height="10" depth="0.3" position="0 5 -18" roughness="0.8"></a-box>
+    <a-box src="pared1.jpg" width="36" height="10" depth="0.3" position="0 5 18" rotation="0 180 0" roughness="0.8"></a-box>
+    <a-box src="pared1.jpg" width="0.3" height="10" depth="36" position="-18 5 0" roughness="0.8"></a-box>
+    <a-box src="pared1.jpg" width="0.3" height="10" depth="36" position="18 5 0" roughness="0.8"></a-box>
+    <!-- TECHO -->
+    <a-box src="techo2.jpg" width="36" height="0.3" depth="36" position="0 10 0" roughness="0.9"></a-box>
+
+    <a-light type="ambient" color="#6b2500" intensity="0.7"></a-light>
+    <a-light type="point" color="#f5a623" intensity="1.5" position="0 7 0" distance="30" decay="1"></a-light>
+    <a-light type="point" color="#ff6600" intensity="0.8" position="0 4 -14" distance="20"></a-light>
+    <a-text value="LAS 4 ETAPAS DE LA INDEPENDENCIA"
+      position="0 7.2 -15" align="center" color="#f5d98b" width="20"
+      material="color:#f5a623"></a-text>
+
+    <!-- PANEL NORTE - ETAPA 1 (CORREGIDO) -->
+    <a-entity position="0 3.2 -16.5">
+      <a-plane color="#f5a623" width="14" height="7" position="0 0 -0.05"></a-plane>
+      <a-plane color="#1a0800" width="13.8" height="6.8" position="0 0 0"></a-plane>
+      <a-text value="1a ETAPA: INICIO (1810-1811)&#10;&#10;16 Sep 1810: El cura Miguel Hidalgo&#10;da el GRITO DE DOLORES en Guanajuato.&#10;Un ejercito de campesinos, indigenas&#10;y mestizos avanzo hacia la capital.&#10;Tomaron el Alhondiga de Granaditas.&#10;Sin organizacion militar formal.&#10;Hidalgo fue capturado y ejecutado&#10;el 30 de julio de 1811."
+        align="center" color="#f5d98b" width="12" position="0 0 0.08" wrap-count="50"></a-text>
+    </a-entity>
+
+    <!-- PANEL ESTE - ETAPA 2 (CORREGIDO) -->
+    <a-entity position="17 3.2 0" rotation="0 -90 0">
+      <a-plane color="#8b1a00" width="14" height="7" position="0 0 -0.05"></a-plane>
+      <a-plane color="#1a0800" width="13.8" height="6.8" position="0 0 0"></a-plane>
+      <a-text value="2a ETAPA: ORGANIZACION (1811-1815)&#10;&#10;Jose Maria MORELOS toma el liderazgo.&#10;Ideologo brillante y estratega militar.&#10;1813: 'Sentimientos de la Nacion'&#10;primer proyecto de nacion.&#10;Convoco el Congreso de Anahuac.&#10;Constitucion de Apatzingan (1814).&#10;Fue capturado y ejecutado&#10;el 22 de diciembre de 1815."
+        align="center" color="#f5d98b" width="12" position="0 0 0.08" wrap-count="50"></a-text>
+    </a-entity>
+
+    <!-- PANEL SUR - ETAPA 3 (CORREGIDO) -->
+    <a-entity position="0 3.2 16.5" rotation="0 180 0">
+      <a-plane color="#4a1500" width="14" height="7" position="0 0 -0.05"></a-plane>
+      <a-plane color="#1a0800" width="13.8" height="6.8" position="0 0 0"></a-plane>
+      <a-text value="3a ETAPA: RESISTENCIA (1815-1821)&#10;&#10;Tras la muerte de Morelos, el movimiento&#10;se fragmenta en guerrillas aisladas.&#10;Vicente GUERRERO y Guadalupe VICTORIA&#10;mantienen viva la lucha en zonas&#10;montanosas del sur y Veracruz.&#10;El espanol Francisco Xavier Mina&#10;tambien lucho por la independencia.&#10;Etapa de desgaste y sobrevivencia."
+        align="center" color="#f5d98b" width="12" position="0 0 0.08" wrap-count="50"></a-text>
+    </a-entity>
+
+    <!-- PANEL OESTE - ETAPA 4 (CORREGIDO) -->
+    <a-entity position="-17 3.2 0" rotation="0 90 0">
+      <a-plane color="#1a4a00" width="14" height="7" position="0 0 -0.05"></a-plane>
+      <a-plane color="#0a1a00" width="13.8" height="6.8" position="0 0 0"></a-plane>
+      <a-text value="4a ETAPA: CONSUMACION (1821)&#10;&#10;Agustin de Iturbide y Vicente Guerrero&#10;se unieron: ABRAZO DE ACATEMPAN.&#10;Plan de Iguala: Las Tres Garantias:&#10;  INDEPENDENCIA, RELIGION, UNION&#10;27 Sep 1821: Ejercito Trigarante&#10;entra triunfante a la Ciudad de Mexico.&#10;28 Sep: Se firma el ACTA DE&#10;INDEPENDENCIA. Mexico era libre!"
+        align="center" color="#f5d98b" width="12" position="0 0 0.08" wrap-count="50"></a-text>
+    </a-entity>
+
+    <!-- MUSICA SALA 1 -->
+    <a-sound src="musica_sala1.mp3" autoplay="true" loop="true" volume="0.4" position="0 2 0"></a-sound>
+
+    <!-- ESTATUA DE HIDALGO -->
+    <a-entity position="0 0 0" class="clickable" vitrina="id:hidalgo">
+      <!-- Pedestal -->
+      <a-box color="#5a4500" width="1.6" height="0.2" depth="1.6" position="0 0.1 0"></a-box>
+      <a-box color="#6b5200" width="1.3" height="0.15" depth="1.3" position="0 0.25 0"></a-box>
+      <a-box color="#7a6000" width="1.0" height="1.0" depth="1.0" position="0 0.9 0"></a-box>
+      <a-box color="#6b5200" width="1.1" height="0.1" depth="1.1" position="0 1.45 0"></a-box>
+      <!-- Texto pedestal -->
+      <a-text value="MIGUEL HIDALGO&#10;1753 - 1811" align="center" color="#f5d98b" width="3.5" position="0 0.85 0.52"></a-text>
+      <!-- Cuerpo / sotana -->
+      <a-cylinder color="#2a1a00" radius="0.28" height="1.4" position="0 2.2 0"></a-cylinder>
+      <!-- Capa sobre hombros -->
+      <a-cone color="#1a1000" radius-bottom="0.38" radius-top="0.1" height="0.5" position="0 2.75 0"></a-cone>
+      <!-- Cuello -->
+      <a-cylinder color="#c8a070" radius="0.12" height="0.15" position="0 2.98 0"></a-cylinder>
+      <!-- Cabeza -->
+      <a-sphere color="#c8a070" radius="0.22" position="0 3.28 0"></a-sphere>
+      <!-- Rasgos faciales -->
+      <a-sphere color="#7a4500" radius="0.04" position="-0.08 3.32 0.19"></a-sphere>
+      <a-sphere color="#7a4500" radius="0.04" position="0.08 3.32 0.19"></a-sphere>
+      <a-box color="#5a2a00" width="0.1" height="0.02" depth="0.02" position="0 3.22 0.21"></a-box>
+      <!-- Cabello/calvo con corona -->
+      <a-sphere color="#3a2500" radius="0.23" position="0 3.38 -0.03" scale="1 0.5 1"></a-sphere>
+      <!-- Brazo derecho levantado (grito) -->
+      <a-cylinder color="#2a1a00" radius="0.07" height="0.7" position="0.32 2.85 0" rotation="0 0 -50"></a-cylinder>
+      <a-cylinder color="#c8a070" radius="0.06" height="0.35" position="0.55 2.55 0" rotation="0 0 -70"></a-cylinder>
+      <!-- Brazo izquierdo -->
+      <a-cylinder color="#2a1a00" radius="0.07" height="0.6" position="-0.3 2.7 0" rotation="0 0 30"></a-cylinder>
+      <a-cylinder color="#c8a070" radius="0.06" height="0.3" position="-0.48 2.5 0" rotation="0 0 20"></a-cylinder>
+      <!-- Anillo de luz en base -->
+      <a-torus color="#f5a623" radius="1.0" radius-tubular="0.03" rotation="90 0 0" position="0 0.15 0"
+        animation="property:rotation; to:90 360 0; loop:true; dur:6000; easing:linear"></a-torus>
+      <!-- Caja invisible clickeable -->
+      <a-box class="clickable" width="1.8" height="4" depth="1.8" position="0 2 0" opacity="0" transparent="true"></a-box>
+    </a-entity>
+
+    <!-- Luz dramatica sobre la estatua -->
+    <a-light type="spot" color="#ffdd88" intensity="2" position="0 9 0" target="#scene" angle="25" penumbra="0.3"></a-light>
+
+    <!-- VITRINAS SALA 1 -->
+
+    <!-- VITRINA 1: Campana de Dolores (esquina NE) -->
+    <a-entity position="8 0 -8" vitrina="id:campana" class="clickable">
+      <!-- Base y pedestal -->
+      <a-box color="#3d2200" width="1.8" height="0.1" depth="1.8" position="0 0.8 0"></a-box>
+      <a-box color="#5a3500" width="1.4" height="0.6" depth="1.4" position="0 0.3 0"></a-box>
+      <!-- Caja de vidrio -->
+      <a-box color="#aaddff" opacity="0.15" width="1.6" height="2" depth="1.6" position="0 1.8 0"></a-box>
+      <a-box color="#88bbdd" opacity="0.08" width="1.65" height="2.05" depth="1.65" position="0 1.8 0"></a-box>
+      <!-- Marco de la vitrina -->
+      <a-box color="#8b6000" width="1.7" height="0.05" depth="1.7" position="0 0.85 0"></a-box>
+      <a-box color="#8b6000" width="1.7" height="0.05" depth="1.7" position="0 2.85 0"></a-box>
+      <!-- Campana 3D -->
+      <a-entity position="0 1.8 0"
+        animation="property:rotation; to:0 360 0; loop:true; dur:5000; easing:linear">
+        <a-cylinder color="#c8860a" radius="0.35" height="0.5" position="0 0 0"></a-cylinder>
+        <a-cylinder color="#a06800" radius="0.28" height="0.35" position="0 -0.1 0"></a-cylinder>
+        <a-sphere color="#8b5500" radius="0.08" position="0 -0.4 0"></a-sphere>
+        <a-cylinder color="#6b4000" radius="0.04" height="0.3" position="0 -0.25 0"></a-cylinder>
+      </a-entity>
+      <!-- Etiqueta -->
+      <a-text value="Campana de Dolores&#10;1810" align="center" color="#f5d98b" width="3" position="0 0.6 0.92"></a-text>
+      <a-box class="clickable" width="1.8" height="3" depth="1.8" position="0 1.8 0" opacity="0" transparent="true"></a-box>
+    </a-entity>
+
+    <!-- VITRINA 2: Espada de Hidalgo (esquina NO) -->
+    <a-entity position="-8 0 -8" vitrina="id:espada" class="clickable">
+      <a-box color="#3d2200" width="1.8" height="0.1" depth="1.8" position="0 0.8 0"></a-box>
+      <a-box color="#5a3500" width="1.4" height="0.6" depth="1.4" position="0 0.3 0"></a-box>
+      <a-box color="#aaddff" opacity="0.15" width="1.6" height="2" depth="1.6" position="0 1.8 0"></a-box>
+      <a-box color="#88bbdd" opacity="0.08" width="1.65" height="2.05" depth="1.65" position="0 1.8 0"></a-box>
+      <a-box color="#8b6000" width="1.7" height="0.05" depth="1.7" position="0 0.85 0"></a-box>
+      <a-box color="#8b6000" width="1.7" height="0.05" depth="1.7" position="0 2.85 0"></a-box>
+      <!-- Espada 3D -->
+      <a-entity position="0 1.8 0"
+        animation="property:rotation; to:0 360 0; loop:true; dur:6000; easing:linear">
+        <a-box color="#c0c0c0" width="0.06" height="1.1" depth="0.04" position="0 0.1 0"></a-box>
+        <a-box color="#888888" width="0.06" height="0.05" depth="0.04" position="0 -0.4 0"></a-box>
+        <a-box color="#c8860a" width="0.35" height="0.06" depth="0.04" position="0 -0.38 0"></a-box>
+        <a-cylinder color="#8b4500" radius="0.04" height="0.3" position="0 -0.6 0"></a-cylinder>
+        <a-sphere color="#c8860a" radius="0.07" position="0 -0.77 0"></a-sphere>
+      </a-entity>
+      <a-text value="Espada de Hidalgo&#10;1810" align="center" color="#f5d98b" width="3" position="0 0.6 0.92"></a-text>
+      <a-box class="clickable" width="1.8" height="3" depth="1.8" position="0 1.8 0" opacity="0" transparent="true"></a-box>
+    </a-entity>
+
+    <!-- VITRINA 3: Acta de Independencia (esquina SE) -->
+    <a-entity position="8 0 8" vitrina="id:acta" class="clickable">
+      <a-box color="#3d2200" width="1.8" height="0.1" depth="1.8" position="0 0.8 0"></a-box>
+      <a-box color="#5a3500" width="1.4" height="0.6" depth="1.4" position="0 0.3 0"></a-box>
+      <a-box color="#aaddff" opacity="0.15" width="1.6" height="2" depth="1.6" position="0 1.8 0"></a-box>
+      <a-box color="#88bbdd" opacity="0.08" width="1.65" height="2.05" depth="1.65" position="0 1.8 0"></a-box>
+      <a-box color="#8b6000" width="1.7" height="0.05" depth="1.7" position="0 0.85 0"></a-box>
+      <a-box color="#8b6000" width="1.7" height="0.05" depth="1.7" position="0 2.85 0"></a-box>
+      <!-- Documento 3D -->
+      <a-entity position="0 1.8 0"
+        animation="property:rotation; to:0 360 0; loop:true; dur:7000; easing:linear">
+        <a-box color="#f5e6c8" width="0.7" height="0.9" depth="0.03" position="0 0 0"></a-box>
+        <a-box color="#c8a878" width="0.68" height="0.02" depth="0.04" position="0 0.44 0"></a-box>
+        <a-box color="#c8a878" width="0.68" height="0.02" depth="0.04" position="0 -0.44 0"></a-box>
+        <a-cylinder color="#c8a878" radius="0.015" height="0.95" position="-0.32 0 0"></a-cylinder>
+        <a-cylinder color="#c8860a" radius="0.06" height="0.06" position="0 -0.3 0.04"></a-cylinder>
+      </a-entity>
+      <a-text value="Acta de Independencia&#10;28 Sep 1821" align="center" color="#f5d98b" width="3" position="0 0.6 0.92"></a-text>
+      <a-box class="clickable" width="1.8" height="3" depth="1.8" position="0 1.8 0" opacity="0" transparent="true"></a-box>
+    </a-entity>
+
+    <!-- VITRINA 4: Estandarte Virgen de Guadalupe (esquina SO) -->
+    <a-entity position="-8 0 8" vitrina="id:estandarte" class="clickable">
+      <a-box color="#3d2200" width="1.8" height="0.1" depth="1.8" position="0 0.8 0"></a-box>
+      <a-box color="#5a3500" width="1.4" height="0.6" depth="1.4" position="0 0.3 0"></a-box>
+      <a-box color="#aaddff" opacity="0.15" width="1.6" height="2" depth="1.6" position="0 1.8 0"></a-box>
+      <a-box color="#88bbdd" opacity="0.08" width="1.65" height="2.05" depth="1.65" position="0 1.8 0"></a-box>
+      <a-box color="#8b6000" width="1.7" height="0.05" depth="1.7" position="0 0.85 0"></a-box>
+      <a-box color="#8b6000" width="1.7" height="0.05" depth="1.7" position="0 2.85 0"></a-box>
+      <!-- Estandarte 3D -->
+      <a-entity position="0 1.8 0"
+        animation="property:rotation; to:0 360 0; loop:true; dur:8000; easing:linear">
+        <a-cylinder color="#5a3500" radius="0.03" height="1.2" position="0 0 0"></a-cylinder>
+        <a-box color="#1a6600" width="0.6" height="0.7" depth="0.02" position="0.32 0.15 0"></a-box>
+        <a-torus color="#c8860a" radius="0.18" radius-tubular="0.02" position="0.32 0.15 0.02"></a-torus>
+        <a-sphere color="#f5d98b" radius="0.07" position="0 0.65 0"></a-sphere>
+      </a-entity>
+      <a-text value="Estandarte Guadalupe&#10;Hidalgo 1810" align="center" color="#f5d98b" width="3" position="0 0.6 0.92"></a-text>
+      <a-box class="clickable" width="1.8" height="3" depth="1.8" position="0 1.8 0" opacity="0" transparent="true"></a-box>
+    </a-entity>
+
+    <!-- CUADROS EN MUROS SALA 1 -->
+    <!-- Panel norte ocupa x:-7 a x:7 → cuadros en x:-12 y x:12 bien separados -->
+    <!-- Cuadro 1: muro norte izquierda -->
+    <a-entity position="-12 4.2 -17.7">
+      <a-box color="#3a1a00" width="4.6" height="3.8" depth="0.08" position="0 0 -0.05"></a-box>
+      <a-box color="#c8860a" width="4.8" height="4.0" depth="0.06" position="0 0 -0.09"></a-box>
+      <a-plane src="cuadro_s1_1.jpg" width="4.4" height="3.6" position="0 0 0.02"></a-plane>
+      <a-text value="El Grito de Dolores - 1810" align="center" color="#f5d98b" width="4.5" position="0 -2.1 0.06"></a-text>
+    </a-entity>
+    <!-- Cuadro 2: muro norte derecha -->
+    <a-entity position="12 4.2 -17.7">
+      <a-box color="#3a1a00" width="4.6" height="3.8" depth="0.08" position="0 0 -0.05"></a-box>
+      <a-box color="#c8860a" width="4.8" height="4.0" depth="0.06" position="0 0 -0.09"></a-box>
+      <a-plane src="cuadro_s1_2.jpg" width="4.4" height="3.6" position="0 0 0.02"></a-plane>
+      <a-text value="Hidalgo y el ejercito - 1810" align="center" color="#f5d98b" width="4.5" position="0 -2.1 0.06"></a-text>
+    </a-entity>
+
+    <!-- Panel sur ocupa x:-7 a x:7 → cuadros en x:-12 y x:12 -->
+    <!-- Cuadro 3: muro sur izquierda -->
+    <a-entity position="-12 4.2 17.7" rotation="0 180 0">
+      <a-box color="#3a1a00" width="4.6" height="3.8" depth="0.08" position="0 0 -0.05"></a-box>
+      <a-box color="#c8860a" width="4.8" height="4.0" depth="0.06" position="0 0 -0.09"></a-box>
+      <a-plane src="cuadro_s1_3.jpg" width="4.4" height="3.6" position="0 0 0.02"></a-plane>
+      <a-text value="Morelos - Sentimientos 1813" align="center" color="#f5d98b" width="4.5" position="0 -2.1 0.06"></a-text>
+    </a-entity>
+    <!-- Cuadro 4: muro sur derecha -->
+    <a-entity position="12 4.2 17.7" rotation="0 180 0">
+      <a-box color="#3a1a00" width="4.6" height="3.8" depth="0.08" position="0 0 -0.05"></a-box>
+      <a-box color="#c8860a" width="4.8" height="4.0" depth="0.06" position="0 0 -0.09"></a-box>
+      <a-plane src="cuadro_s1_4.jpg" width="4.4" height="3.6" position="0 0 0.02"></a-plane>
+      <a-text value="Abrazo de Acatempan - 1821" align="center" color="#f5d98b" width="4.5" position="0 -2.1 0.06"></a-text>
+    </a-entity>
+
+    <!-- DETALLES ESTETICOS: molduras y ornamentos en las paredes -->
+
+    <!-- Friso dorado superior en muro norte -->
+    <a-box color="#c8860a" width="34" height="0.15" depth="0.12" position="0 8.8 -17.8"></a-box>
+    <a-box color="#8b5500" width="34" height="0.08" depth="0.1" position="0 8.5 -17.8"></a-box>
+    <!-- Friso muro sur -->
+    <a-box color="#c8860a" width="34" height="0.15" depth="0.12" position="0 8.8 17.8" rotation="0 180 0"></a-box>
+    <a-box color="#8b5500" width="34" height="0.08" depth="0.1" position="0 8.5 17.8" rotation="0 180 0"></a-box>
+    <!-- Friso muro este -->
+    <a-box color="#c8860a" width="34" height="0.15" depth="0.12" position="17.8 8.8 0" rotation="0 -90 0"></a-box>
+    <!-- Friso muro oeste -->
+    <a-box color="#c8860a" width="34" height="0.15" depth="0.12" position="-17.8 8.8 0" rotation="0 90 0"></a-box>
+
+    <!-- Rodapie dorado en todos los muros -->
+    <a-box color="#8b5500" width="34" height="0.2" depth="0.1" position="0 0.1 -17.8"></a-box>
+    <a-box color="#8b5500" width="34" height="0.2" depth="0.1" position="0 0.1 17.8" rotation="0 180 0"></a-box>
+    <a-box color="#8b5500" width="34" height="0.2" depth="0.1" position="17.8 0.1 0" rotation="0 -90 0"></a-box>
+    <a-box color="#8b5500" width="34" height="0.2" depth="0.1" position="-17.8 0.1 0" rotation="0 90 0"></a-box>
+
+    <!-- Ornamento central en techo: escudo decorativo -->
+    <a-torus color="#c8860a" radius="2.2" radius-tubular="0.06" rotation="90 0 0" position="0 9.8 0"></a-torus>
+    <a-torus color="#8b5500" radius="1.6" radius-tubular="0.04" rotation="90 0 0" position="0 9.8 0"></a-torus>
+    <a-sphere color="#c8860a" radius="0.3" position="0 9.8 0"></a-sphere>
+
+
+  </a-entity>
+  <!-- FIN SALA 1 -->
+
+  <!-- ════════ SALA 2: LOGIAS YORKINAS Y ESCOCESAS ════════ -->
+  <a-entity id="sala2" visible="false" position="0 0 -120">
+    <a-sky color="#020a15"></a-sky>
+    <a-plane src="suelo2.jpg" repeat="4 4" rotation="-90 0 0" width="36" height="36" position="0 0 0" roughness="0.4"></a-plane>
+    <!-- PILARES ELEGANTES SALA 2 -->
+    <a-entity position="12 0 12">
+      <a-cylinder color="#1a2a3a" radius="0.4" height="9" position="0 4.5 0"></a-cylinder>
+      <a-cylinder color="#2a4a6a" radius="0.55" height="0.3" position="0 9.1 0"></a-cylinder>
+      <a-cylinder color="#2a4a6a" radius="0.55" height="0.3" position="0 0.15 0"></a-cylinder>
+      <a-torus color="#4488ff" radius="0.5" radius-tubular="0.03" rotation="90 0 0" position="0 4.5 0"
+        animation="property:rotation; to:90 360 0; loop:true; dur:4000; easing:linear"></a-torus>
+    </a-entity>
+    <a-entity position="-12 0 12">
+      <a-cylinder color="#1a2a3a" radius="0.4" height="9" position="0 4.5 0"></a-cylinder>
+      <a-cylinder color="#2a4a6a" radius="0.55" height="0.3" position="0 9.1 0"></a-cylinder>
+      <a-cylinder color="#2a4a6a" radius="0.55" height="0.3" position="0 0.15 0"></a-cylinder>
+      <a-torus color="#ff4444" radius="0.5" radius-tubular="0.03" rotation="90 0 0" position="0 4.5 0"
+        animation="property:rotation; to:90 360 0; loop:true; dur:4000; easing:linear"></a-torus>
+    </a-entity>
+    <a-entity position="12 0 -12">
+      <a-cylinder color="#1a2a3a" radius="0.4" height="9" position="0 4.5 0"></a-cylinder>
+      <a-cylinder color="#2a4a6a" radius="0.55" height="0.3" position="0 9.1 0"></a-cylinder>
+      <a-cylinder color="#2a4a6a" radius="0.55" height="0.3" position="0 0.15 0"></a-cylinder>
+      <a-torus color="#4488ff" radius="0.5" radius-tubular="0.03" rotation="90 0 0" position="0 4.5 0"
+        animation="property:rotation; to:90 360 0; loop:true; dur:4000; easing:linear"></a-torus>
+    </a-entity>
+    <a-entity position="-12 0 -12">
+      <a-cylinder color="#1a2a3a" radius="0.4" height="9" position="0 4.5 0"></a-cylinder>
+      <a-cylinder color="#2a4a6a" radius="0.55" height="0.3" position="0 9.1 0"></a-cylinder>
+      <a-cylinder color="#2a4a6a" radius="0.55" height="0.3" position="0 0.15 0"></a-cylinder>
+      <a-torus color="#ff4444" radius="0.5" radius-tubular="0.03" rotation="90 0 0" position="0 4.5 0"
+        animation="property:rotation; to:90 360 0; loop:true; dur:4000; easing:linear"></a-torus>
+    </a-entity>
+    <!-- MUROS SALA 2 -->
+    <a-box src="pared2.jpg" width="36" height="10" depth="0.3" position="0 5 -18" roughness="0.5"></a-box>
+    <a-box src="pared2.jpg" width="36" height="10" depth="0.3" position="0 5 18" rotation="0 180 0" roughness="0.5"></a-box>
+    <a-box src="pared2.jpg" width="0.3" height="10" depth="36" position="-18 5 0" roughness="0.5"></a-box>
+    <a-box src="pared2.jpg" width="0.3" height="10" depth="36" position="18 5 0" roughness="0.5"></a-box>
+    <!-- TECHO -->
+    <a-box src="techo2.jpg" width="36" height="0.3" depth="36" position="0 10 0" roughness="0.6"></a-box>
+    <!-- DETALLES ESTETICOS: frisos y rodapies -->
+    <a-box color="#1a3a5a" width="34" height="0.2" depth="0.12" position="0 9.7 -17.8"></a-box>
+    <a-box color="#4488ff" width="34" height="0.06" depth="0.1" position="0 9.4 -17.8"></a-box>
+    <a-box color="#1a3a5a" width="34" height="0.2" depth="0.12" position="0 9.7 17.8" rotation="0 180 0"></a-box>
+    <a-box color="#4488ff" width="34" height="0.06" depth="0.1" position="0 9.4 17.8" rotation="0 180 0"></a-box>
+    <a-box color="#3a1a1a" width="34" height="0.2" depth="0.12" position="17.8 9.7 0" rotation="0 -90 0"></a-box>
+    <a-box color="#ff4444" width="34" height="0.06" depth="0.1" position="17.8 9.4 0" rotation="0 -90 0"></a-box>
+    <a-box color="#3a1a1a" width="34" height="0.2" depth="0.12" position="-17.8 9.7 0" rotation="0 90 0"></a-box>
+    <a-box color="#4488ff" width="34" height="0.06" depth="0.1" position="-17.8 9.4 0" rotation="0 90 0"></a-box>
+    <!-- Rodapies -->
+    <a-box color="#0a1a3a" width="34" height="0.25" depth="0.1" position="0 0.12 -17.8"></a-box>
+    <a-box color="#0a1a3a" width="34" height="0.25" depth="0.1" position="0 0.12 17.8" rotation="0 180 0"></a-box>
+    <a-box color="#0a1a3a" width="34" height="0.25" depth="0.1" position="17.8 0.12 0" rotation="0 -90 0"></a-box>
+    <a-box color="#0a1a3a" width="34" height="0.25" depth="0.1" position="-17.8 0.12 0" rotation="0 90 0"></a-box>
+    <!-- Ornamento techo: dos anillos azul/rojo -->
+    <a-torus color="#4488ff" radius="2.4" radius-tubular="0.07" rotation="90 0 0" position="0 9.8 0"></a-torus>
+    <a-torus color="#ff4444" radius="1.6" radius-tubular="0.05" rotation="90 0 0" position="0 9.8 0"></a-torus>
+    <a-sphere color="#aaaaff" radius="0.25" position="0 9.8 0"></a-sphere>
+    <!-- MUSICA SALA 2 -->
+    <a-sound src="musica_sala2.mp3" autoplay="true" loop="true" volume="0.4" position="0 2 0"></a-sound>
+    <a-light type="ambient" color="#0a1a3a" intensity="0.8"></a-light>
+    <a-light type="point" color="#4488ff" intensity="1.2" position="-6 7 0" distance="28"></a-light>
+    <a-light type="point" color="#ff4444" intensity="1.2" position="6 7 0" distance="28"></a-light>
+    <a-text value=" LOGIAS YORKINAS Y ESCOCESAS "
+      position="0 7.2 -15" align="center" color="#88ccff" width="20"></a-text>
+
+    <!-- Panel norte: contexto -->
+    <a-entity position="0 3.2 -16.5">
+      <a-plane color="#334455" width="13" height="6.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#030d1a" width="12.8" height="6.3" position="0 0 0"></a-plane>
+      <a-text value="LAS LOGIAS MASONICAS&#10;&#10;Tras la Independencia (1821)&#10;las logias masonicas dominaron&#10;la politica mexicana.&#10;&#10;Eran los primeros "partidos"&#10;del pais. Controlaban la prensa,&#10;el ejercito y el gobierno."
+        align="center" color="#ccddff" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <!-- Panel este: Yorkina -->
+    <a-entity position="17 3.2 0" rotation="0 -90 0">
+      <a-plane color="#004400" width="13" height="7.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#001500" width="12.8" height="7.3" position="0 0 0"></a-plane>
+      <a-text value="LOGIA YORKINA (1825)&#10;&#10;Fundada con apoyo del diplomatico&#10;estadounidense Joel Poinsett.&#10;&#10;- Ideologia: LIBERAL / FEDERALISTA&#10;- Base: clase media y provincias&#10;- Patrona: Virgen de Guadalupe&#10;- Periodico: El Aguila Mexicana&#10;- Lideres: Guerrero, Zavala&#10;- Origen del Partido LIBERAL&#10;- Modelo: republica federal&#10;  al estilo de EE.UU."
+        align="center" color="#aaffaa" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <!-- Panel oeste: Escocesa -->
+    <a-entity position="-17 3.2 0" rotation="0 90 0">
+      <a-plane color="#440000" width="13" height="7.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#150000" width="12.8" height="7.3" position="0 0 0"></a-plane>
+      <a-text value="LOGIA ESCOCESA (1813)&#10;&#10;Introducida con tropas espanolas&#10;que vinieron a combatir insurgentes.&#10;&#10;- Ideologia: CONSERVADORA&#10;- Base: aristocracia y alto clero&#10;- Patrona: Virgen del Pilar&#10;- Periodico: El Sol&#10;- Lideres: Bravo, Codorniu&#10;- Origen del Partido CONSERVADOR&#10;- Modelo: centralismo europeo"
+        align="center" color="#ffaaaa" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <!-- Panel sur: conflicto -->
+    <a-entity position="0 3.2 16.5" rotation="0 180 0">
+      <a-plane color="#555500" width="13" height="6.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#151500" width="12.8" height="6.3" position="0 0 0"></a-plane>
+      <a-text value="EL CONFLICTO MASONICO&#10;&#10;1827: Yorkinos descubrieron&#10;conspiracion del Padre Arenas&#10;para restaurar el dominio espanol.&#10;&#10;Su rivalidad genero los dos&#10;grandes partidos del siglo XIX:&#10;LIBERALES y CONSERVADORES."
+        align="center" color="#ffffaa" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <!-- SIMBOLO CENTRAL (conservado) -->
+    <a-entity position="0 1.6 0">
+      <a-torus color="#4488ff" radius="2" radius-tubular="0.07" rotation="45 0 0"
+        animation="property:rotation; to:405 0 0; loop:true; dur:6000; easing:linear"></a-torus>
+      <a-torus color="#ff4444" radius="2" radius-tubular="0.07" rotation="-45 0 0"
+        animation="property:rotation; to:-405 0 0; loop:true; dur:6000; easing:linear"></a-torus>
+      <a-text value="YORK vs ESCOCIA" align="center" color="#ffffff" width="5" position="0 3.2 0"></a-text>
+    </a-entity>
+
+    <!-- ESTATUA JOEL ROBERTS POINSETT (Logia Yorkina - lado azul derecha) -->
+    <a-entity position="5 0 0" class="clickable" vitrina="id:poinsett">
+      <!-- Pedestal -->
+      <a-box color="#0a1a3a" width="1.4" height="0.15" depth="1.4" position="0 0.07 0"></a-box>
+      <a-box color="#1a2a4a" width="1.1" height="0.12" depth="1.1" position="0 0.19 0"></a-box>
+      <a-box color="#0a1530" width="0.9" height="0.9" depth="0.9" position="0 0.79 0"></a-box>
+      <a-box color="#1a2a4a" width="1.0" height="0.08" depth="1.0" position="0 1.28 0"></a-box>
+      <a-text value="J.R. POINSETT&#10;Logia Yorkina" align="center" color="#88ccff" width="3" position="0 0.75 0.46"></a-text>
+      <!-- Cuerpo -->
+      <a-cylinder color="#1a2a4a" radius="0.22" height="1.2" position="0 1.98 0"></a-cylinder>
+      <!-- Levita/saco -->
+      <a-cone color="#0a1530" radius-bottom="0.3" radius-top="0.15" height="0.45" position="0 2.45 0"></a-cone>
+      <!-- Cuello y cabeza -->
+      <a-cylinder color="#c8a070" radius="0.1" height="0.12" position="0 2.72 0"></a-cylinder>
+      <a-sphere color="#c8a070" radius="0.2" position="0 2.98 0"></a-sphere>
+      <!-- Cabello -->
+      <a-sphere color="#3a2500" radius="0.21" position="0 3.06 -0.02" scale="1 0.55 1"></a-sphere>
+      <!-- Ojos -->
+      <a-sphere color="#1a1a3a" radius="0.035" position="-0.07 3.01 0.17"></a-sphere>
+      <a-sphere color="#1a1a3a" radius="0.035" position="0.07 3.01 0.17"></a-sphere>
+      <!-- Brazo derecho con documento -->
+      <a-cylinder color="#1a2a4a" radius="0.06" height="0.6" position="0.28 2.2 0" rotation="0 0 -25"></a-cylinder>
+      <a-cylinder color="#c8a070" radius="0.055" height="0.3" position="0.42 1.95 0" rotation="0 0 -35"></a-cylinder>
+      <a-box color="#f5e6c8" width="0.18" height="0.25" depth="0.02" position="0.54 1.82 0" rotation="0 0 -15"></a-box>
+      <!-- Brazo izquierdo -->
+      <a-cylinder color="#1a2a4a" radius="0.06" height="0.55" position="-0.26 2.25 0" rotation="0 0 20"></a-cylinder>
+      <!-- Luz azul -->
+      <a-light type="point" color="#4488ff" intensity="0.8" position="0 3 0" distance="6"></a-light>
+      <!-- Invisible clickbox -->
+      <a-box class="clickable" width="1.5" height="3.5" depth="1.5" position="0 1.8 0" opacity="0" transparent="true"></a-box>
+    </a-entity>
+
+    <!-- ESTATUA DR. MANUEL CODORNIU (Logia Escocesa - lado rojo izquierda) -->
+    <a-entity position="-5 0 0" class="clickable" vitrina="id:codorniu">
+      <!-- Pedestal -->
+      <a-box color="#3a0a0a" width="1.4" height="0.15" depth="1.4" position="0 0.07 0"></a-box>
+      <a-box color="#4a1a1a" width="1.1" height="0.12" depth="1.1" position="0 0.19 0"></a-box>
+      <a-box color="#2a0808" width="0.9" height="0.9" depth="0.9" position="0 0.79 0"></a-box>
+      <a-box color="#4a1a1a" width="1.0" height="0.08" depth="1.0" position="0 1.28 0"></a-box>
+      <a-text value="M. CODORNIU&#10;Logia Escocesa" align="center" color="#ffaaaa" width="3" position="0 0.75 0.46"></a-text>
+      <!-- Cuerpo / uniforme militar -->
+      <a-cylinder color="#3a0a0a" radius="0.22" height="1.2" position="0 1.98 0"></a-cylinder>
+      <!-- Chaqueta militar con hombreras -->
+      <a-cone color="#2a0808" radius-bottom="0.32" radius-top="0.15" height="0.45" position="0 2.45 0"></a-cone>
+      <a-box color="#8b0000" width="0.15" height="0.08" depth="0.35" position="-0.28 2.65 0"></a-box>
+      <a-box color="#8b0000" width="0.15" height="0.08" depth="0.35" position="0.28 2.65 0"></a-box>
+      <!-- Medallas -->
+      <a-sphere color="#c8860a" radius="0.04" position="-0.08 2.35 0.22"></a-sphere>
+      <a-sphere color="#c8860a" radius="0.04" position="0.02 2.28 0.22"></a-sphere>
+      <a-sphere color="#aaaaaa" radius="0.04" position="-0.05 2.2 0.22"></a-sphere>
+      <!-- Cuello y cabeza -->
+      <a-cylinder color="#c8a070" radius="0.1" height="0.12" position="0 2.72 0"></a-cylinder>
+      <a-sphere color="#c8a070" radius="0.2" position="0 2.98 0"></a-sphere>
+      <!-- Cabello/bigote -->
+      <a-sphere color="#2a1a00" radius="0.21" position="0 3.06 -0.02" scale="1 0.55 1"></a-sphere>
+      <a-box color="#2a1a00" width="0.14" height="0.03" depth="0.03" position="0 2.92 0.19"></a-box>
+      <!-- Ojos -->
+      <a-sphere color="#1a0a0a" radius="0.035" position="-0.07 3.01 0.17"></a-sphere>
+      <a-sphere color="#1a0a0a" radius="0.035" position="0.07 3.01 0.17"></a-sphere>
+      <!-- Brazo derecho levantado -->
+      <a-cylinder color="#3a0a0a" radius="0.06" height="0.65" position="0.3 2.55 0" rotation="0 0 -55"></a-cylinder>
+      <a-cylinder color="#c8a070" radius="0.055" height="0.3" position="0.52 2.3 0" rotation="0 0 -65"></a-cylinder>
+      <!-- Brazo izquierdo -->
+      <a-cylinder color="#3a0a0a" radius="0.06" height="0.55" position="-0.26 2.25 0" rotation="0 0 20"></a-cylinder>
+      <!-- Luz roja -->
+      <a-light type="point" color="#ff4444" intensity="0.8" position="0 3 0" distance="6"></a-light>
+      <!-- Invisible clickbox -->
+      <a-box class="clickable" width="1.5" height="3.5" depth="1.5" position="0 1.8 0" opacity="0" transparent="true"></a-box>
+    </a-entity>
+
+    <!-- CUADROS EN MUROS SALA 2 -->
+    <!-- Muro norte: a los lados del panel -->
+    <a-entity position="-12 4.2 -17.7">
+      <a-box color="#0a1a3a" width="4.6" height="3.8" depth="0.08" position="0 0 -0.05"></a-box>
+      <a-box color="#4488ff" width="4.8" height="4.0" depth="0.06" position="0 0 -0.09"></a-box>
+      <a-plane src="cuadro_s2_1.jpg" width="4.4" height="3.6" position="0 0 0.02"></a-plane>
+      <a-text value="Joel R. Poinsett - 1779-1851" align="center" color="#88ccff" width="4.5" position="0 -2.1 0.06"></a-text>
+    </a-entity>
+    <a-entity position="12 4.2 -17.7">
+      <a-box color="#3a0a0a" width="4.6" height="3.8" depth="0.08" position="0 0 -0.05"></a-box>
+      <a-box color="#ff4444" width="4.8" height="4.0" depth="0.06" position="0 0 -0.09"></a-box>
+      <a-plane src="cuadro_s2_2.jpg" width="4.4" height="3.6" position="0 0 0.02"></a-plane>
+      <a-text value="Manuel Codorniu - 1788-1857" align="center" color="#ffaaaa" width="4.5" position="0 -2.1 0.06"></a-text>
+    </a-entity>
+    <!-- Muro sur: a los lados del panel -->
+    <a-entity position="-12 4.2 17.7" rotation="0 180 0">
+      <a-box color="#1a1a00" width="4.6" height="3.8" depth="0.08" position="0 0 -0.05"></a-box>
+      <a-box color="#888800" width="4.8" height="4.0" depth="0.06" position="0 0 -0.09"></a-box>
+      <a-plane src="cuadro_s2_3.jpg" width="4.4" height="3.6" position="0 0 0.02"></a-plane>
+      <a-text value="La rivalidad masonicas 1827" align="center" color="#ffffaa" width="4.5" position="0 -2.1 0.06"></a-text>
+    </a-entity>
+    <a-entity position="12 4.2 17.7" rotation="0 180 0">
+      <a-box color="#1a1a00" width="4.6" height="3.8" depth="0.08" position="0 0 -0.05"></a-box>
+      <a-box color="#888800" width="4.8" height="4.0" depth="0.06" position="0 0 -0.09"></a-box>
+      <a-plane src="cuadro_s2_4.jpg" width="4.4" height="3.6" position="0 0 0.02"></a-plane>
+      <a-text value="Mexico independiente 1821" align="center" color="#ffffaa" width="4.5" position="0 -2.1 0.06"></a-text>
+    </a-entity>
+
+    <!-- VITRINAS SALA 2 (mas grandes que sala 1) -->
+    <!-- Vitrina 1: Sello de la Logia Yorkina (esquina NE) -->
+    <a-entity position="8 0 -8" class="clickable" vitrina="id:sello_york">
+      <a-box color="#0a1a3a" width="2.0" height="0.12" depth="2.0" position="0 0.9 0"></a-box>
+      <a-box color="#1a3a6a" width="1.6" height="0.7" depth="1.6" position="0 0.35 0"></a-box>
+      <a-box color="#aaddff" opacity="0.15" width="1.8" height="2.2" depth="1.8" position="0 2.0 0"></a-box>
+      <a-box color="#4488ff" width="1.9" height="0.06" depth="1.9" position="0 0.96 0"></a-box>
+      <a-box color="#4488ff" width="1.9" height="0.06" depth="1.9" position="0 3.1 0"></a-box>
+      <a-entity position="0 2.0 0" animation="property:rotation; to:0 360 0; loop:true; dur:6000; easing:linear">
+        <a-cylinder color="#4488ff" radius="0.35" height="0.08" position="0 0 0"></a-cylinder>
+        <a-torus color="#88ccff" radius="0.32" radius-tubular="0.04" rotation="90 0 0" position="0 0.06 0"></a-torus>
+        <a-box color="#f5e6c8" width="0.25" height="0.35" depth="0.03" position="0 0.25 0"></a-box>
+        <a-cylinder color="#c8860a" radius="0.07" height="0.07" position="0 0 0.38"></a-cylinder>
+      </a-entity>
+      <a-text value="Sello Logia Yorkina&#10;1825" align="center" color="#88ccff" width="3.5" position="0 0.7 1.02"></a-text>
+      <a-box class="clickable" width="2.0" height="3.2" depth="2.0" position="0 2.0 0" opacity="0" transparent="true"></a-box>
+    </a-entity>
+
+    <!-- Vitrina 2: Sello de la Logia Escocesa (esquina NO) -->
+    <a-entity position="-8 0 -8" class="clickable" vitrina="id:sello_escocia">
+      <a-box color="#3a0a0a" width="2.0" height="0.12" depth="2.0" position="0 0.9 0"></a-box>
+      <a-box color="#5a1a1a" width="1.6" height="0.7" depth="1.6" position="0 0.35 0"></a-box>
+      <a-box color="#ffaaaa" opacity="0.12" width="1.8" height="2.2" depth="1.8" position="0 2.0 0"></a-box>
+      <a-box color="#ff4444" width="1.9" height="0.06" depth="1.9" position="0 0.96 0"></a-box>
+      <a-box color="#ff4444" width="1.9" height="0.06" depth="1.9" position="0 3.1 0"></a-box>
+      <a-entity position="0 2.0 0" animation="property:rotation; to:0 360 0; loop:true; dur:7000; easing:linear">
+        <a-cylinder color="#880000" radius="0.35" height="0.08" position="0 0 0"></a-cylinder>
+        <a-torus color="#ff4444" radius="0.32" radius-tubular="0.04" rotation="90 0 0" position="0 0.06 0"></a-torus>
+        <a-octahedron color="#cc0000" radius="0.22" position="0 0.3 0"></a-octahedron>
+        <a-cylinder color="#aaaaaa" radius="0.06" height="0.06" position="0 0 0.38"></a-cylinder>
+      </a-entity>
+      <a-text value="Sello Logia Escocesa&#10;1813" align="center" color="#ffaaaa" width="3.5" position="0 0.7 1.02"></a-text>
+      <a-box class="clickable" width="2.0" height="3.2" depth="2.0" position="0 2.0 0" opacity="0" transparent="true"></a-box>
+    </a-entity>
+
+    <!-- Vitrina 3: Documento Politico (esquina SE) -->
+    <a-entity position="8 0 8" class="clickable" vitrina="id:doc_politico">
+      <a-box color="#1a1a00" width="2.0" height="0.12" depth="2.0" position="0 0.9 0"></a-box>
+      <a-box color="#3a3a00" width="1.6" height="0.7" depth="1.6" position="0 0.35 0"></a-box>
+      <a-box color="#ffffaa" opacity="0.1" width="1.8" height="2.2" depth="1.8" position="0 2.0 0"></a-box>
+      <a-box color="#888800" width="1.9" height="0.06" depth="1.9" position="0 0.96 0"></a-box>
+      <a-box color="#888800" width="1.9" height="0.06" depth="1.9" position="0 3.1 0"></a-box>
+      <a-entity position="0 2.0 0" animation="property:rotation; to:0 360 0; loop:true; dur:8000; easing:linear">
+        <a-box color="#f5e6c8" width="0.7" height="0.9" depth="0.04" position="0 0.1 0"></a-box>
+        <a-box color="#c8a878" width="0.68" height="0.02" depth="0.05" position="0 0.54 0"></a-box>
+        <a-box color="#c8a878" width="0.68" height="0.02" depth="0.05" position="0 -0.34 0"></a-box>
+        <a-cylinder color="#c8860a" radius="0.065" height="0.065" position="0.1 -0.15 0.04"></a-cylinder>
+      </a-entity>
+      <a-text value="Acta fundacional&#10;Logia York 1825" align="center" color="#ffffaa" width="3.5" position="0 0.7 1.02"></a-text>
+      <a-box class="clickable" width="2.0" height="3.2" depth="2.0" position="0 2.0 0" opacity="0" transparent="true"></a-box>
+    </a-entity>
+
+    <!-- Vitrina 4: Periodico El Sol (esquina SO) -->
+    <a-entity position="-8 0 8" class="clickable" vitrina="id:periodico_sol">
+      <a-box color="#1a0a00" width="2.0" height="0.12" depth="2.0" position="0 0.9 0"></a-box>
+      <a-box color="#3a1a00" width="1.6" height="0.7" depth="1.6" position="0 0.35 0"></a-box>
+      <a-box color="#ffddaa" opacity="0.1" width="1.8" height="2.2" depth="1.8" position="0 2.0 0"></a-box>
+      <a-box color="#c8860a" width="1.9" height="0.06" depth="1.9" position="0 0.96 0"></a-box>
+      <a-box color="#c8860a" width="1.9" height="0.06" depth="1.9" position="0 3.1 0"></a-box>
+      <a-entity position="0 2.0 0" animation="property:rotation; to:0 360 0; loop:true; dur:5000; easing:linear">
+        <a-box color="#f0e8d0" width="0.75" height="1.0" depth="0.03" position="0 0 0"></a-box>
+        <a-box color="#8b6000" width="0.73" height="0.06" depth="0.04" position="0 0.46 0"></a-box>
+        <a-sphere color="#ffcc00" radius="0.15" position="0 0.3 0.05"></a-sphere>
+        <a-cylinder color="#ffcc00" radius="0.01" height="0.5" position="-0.2 0 0.05"></a-cylinder>
+        <a-cylinder color="#ffcc00" radius="0.01" height="0.5" position="0.2 0 0.05"></a-cylinder>
+      </a-entity>
+      <a-text value="Periodico El Sol&#10;Logia Escocesa" align="center" color="#ffddaa" width="3.5" position="0 0.7 1.02"></a-text>
+      <a-box class="clickable" width="2.0" height="3.2" depth="2.0" position="0 2.0 0" opacity="0" transparent="true"></a-box>
+    </a-entity>
+  </a-entity>
+
+  <!-- ════════ SALA 3: PERIODO ANARQUICO ════════ -->
+  <a-entity id="sala3" visible="false" position="0 0 -240">
+    <a-sky color="#0f0500"></a-sky>
+    <a-plane color="#1a0800" rotation="-90 0 0" width="36" height="36" position="0 0 0"></a-plane>
+    <a-cylinder color="#3d1a00" radius="0.5" height="8" position="12 4 12"></a-cylinder>
+    <a-cylinder color="#3d1a00" radius="0.5" height="8" position="-12 4 12"></a-cylinder>
+    <a-cylinder color="#3d1a00" radius="0.5" height="8" position="12 4 -12"></a-cylinder>
+    <a-cylinder color="#3d1a00" radius="0.5" height="8" position="-12 4 -12"></a-cylinder>
+    <!-- MUROS SALA 3 -->
+    <a-box src="santa1.jpg" width="36" height="10" depth="0.3" position="0 5 -18" roughness="0.8"></a-box>
+    <a-box src="santa2.jpg" width="36" height="10" depth="0.3" position="0 5 18" rotation="0 180 0" roughness="0.8"></a-box>
+    <a-box src="santa3.jpg" width="0.3" height="10" depth="36" position="-18 5 0" roughness="0.8"></a-box>
+    <a-box src="santa4.jpg" width="0.3" height="10" depth="36" position="18 5 0" roughness="0.8"></a-box>
+    <!-- TECHO -->
+    <a-box src="techo2.jpg" width="36" height="0.3" depth="36" position="0 10 0" roughness="0.9"></a-box>
+    <a-light type="ambient" color="#3d1500" intensity="0.6"></a-light>
+    <a-light type="point" color="#ff6600" intensity="1.3" position="0 7 0" distance="30"></a-light>
+    <a-text value="  EL PERIODO ANARQUICO (1821-1855)  "
+      position="0 7.2 -15" align="center" color="#ffaa44" width="22"></a-text>
+
+    <a-entity position="0 3.2 -16.5">
+      <a-plane color="#5a2d00" width="13" height="6.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#1a0800" width="12.8" height="6.3" position="0 0 0"></a-plane>
+      <a-text value="34 ANOS DE CAOS TOTAL&#10;&#10;1821-1855: mas de 50 gobiernos.&#10;&#10;Causas:&#10;- Liberales vs Conservadores&#10;- Golpes de Estado constantes&#10;- Economia devastada&#10;- Santa Anna: 11 presidencias"
+        align="center" color="#ffcc88" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <a-entity position="17 3.2 0" rotation="0 -90 0">
+      <a-plane color="#4a0050" width="13" height="6.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#1a0020" width="12.8" height="6.3" position="0 0 0"></a-plane>
+      <a-text value="1821-1823: PRIMER IMPERIO&#10;&#10;Iturbide se corono Agustin I&#10;en julio de 1822.&#10;&#10;Plan de Casa Mata (Santa Anna)&#10;lo derroco en 1823.&#10;&#10;Abdico y fue fusilado en 1824.&#10;Mexico se volvio republica."
+        align="center" color="#ddaaff" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <a-entity position="-17 3.2 0" rotation="0 90 0">
+      <a-plane color="#5a0000" width="13" height="7" position="0 0 -0.05"></a-plane>
+      <a-plane color="#1a0000" width="12.8" height="6.8" position="0 0 0"></a-plane>
+      <a-text value="SANTA ANNA&#10;&#10;Presidente 11 veces (1833-1855).&#10;Sin ideologia fija.&#10;&#10;Perdio:&#10;- Texas (1836)&#10;- Guerra vs EE.UU. (1847)&#10;- La Mesilla vendida (1853)&#10;&#10;Simbolo del caos y corrupcion."
+        align="center" color="#ffaaaa" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <a-entity position="0 3.2 16.5" rotation="0 180 0">
+      <a-plane color="#003300" width="13" height="6.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#001500" width="12.8" height="6.3" position="0 0 0"></a-plane>
+      <a-text value="CAMBIOS DE CONSTITUCION&#10;&#10;- 1824: Republica Federal&#10;- 1836: Siete Leyes Centralistas&#10;- 1843: Bases Organicas&#10;- 1846: Retorno a la de 1824&#10;- 1853: Dictadura sin ley&#10;&#10;Cada cambio = golpe de Estado"
+        align="center" color="#aaffaa" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <a-entity position="0 1.6 0">
+      <a-cone color="#ff6600" radius-bottom="1.8" height="3.5" opacity="0.7"
+        animation="property:rotation; to:0 360 0; loop:true; dur:5000; easing:linear"></a-cone>
+      <a-text value="50+&#10;GOBIERNOS&#10;EN 34 ANOS" align="center" color="#ffaa44" width="5" position="0 3 0"></a-text>
+    </a-entity>
+  </a-entity>
+
+  <!-- ════════ SALA 4: CONSERVADORES Y LIBERALES ════════ -->
+  <a-entity id="sala4" visible="false" position="0 0 -360">
+    <a-sky color="#050510"></a-sky>
+    <a-plane color="#0a0a20" rotation="-90 0 0" width="36" height="36" position="0 0 0"></a-plane>
+    <a-cylinder color="#2a2a55" radius="0.5" height="8" position="12 4 12"></a-cylinder>
+    <a-cylinder color="#2a2a55" radius="0.5" height="8" position="-12 4 12"></a-cylinder>
+    <a-cylinder color="#2a2a55" radius="0.5" height="8" position="12 4 -12"></a-cylinder>
+    <a-cylinder color="#2a2a55" radius="0.5" height="8" position="-12 4 -12"></a-cylinder>
+    <!-- MUROS SALA 4 -->
+    <a-box src="sala4_1.jpg" width="36" height="10" depth="0.3" position="0 5 -18" roughness="0.8"></a-box>
+    <a-box src="sala4_2.jpg" width="36" height="10" depth="0.3" position="0 5 18" rotation="0 180 0" roughness="0.8"></a-box>
+    <a-box src="sala4_3.jpg" width="0.3" height="10" depth="36" position="-18 5 0" roughness="0.8"></a-box>
+    <a-box src="sala4_4.jpg" width="0.3" height="10" depth="36" position="18 5 0" roughness="0.8"></a-box>
+    <!-- TECHO -->
+    <a-box src="techo2.jpg" width="36" height="0.3" depth="36" position="0 10 0" roughness="0.9"></a-box>
+    <a-light type="ambient" color="#1a1a3a" intensity="0.7"></a-light>
+    <a-light type="point" color="#6644ff" intensity="0.9" position="-6 7 0" distance="25"></a-light>
+    <a-light type="point" color="#ff4422" intensity="0.9" position="6 7 0" distance="25"></a-light>
+    <a-text value=" CONSERVADORES vs LIBERALES "
+      position="0 7.2 -15" align="center" color="#ccaaff" width="22"></a-text>
+
+    <a-entity position="0 3.2 -16.5">
+      <a-plane color="#333366" width="13" height="6.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#0a0a20" width="12.8" height="6.3" position="0 0 0"></a-plane>
+      <a-text value="DOS PROYECTOS DE NACION&#10;&#10;Mexico se dividio en dos visiones:&#10;- Escocesa -> CONSERVADORES&#10;- Yorkina  -> LIBERALES&#10;&#10;Su choque provoco:&#10;- Inestabilidad permanente&#10;- Guerras civiles&#10;- Invasiones extranjeras"
+        align="center" color="#ccccff" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <a-entity position="17 3.2 0" rotation="0 -90 0">
+      <a-plane color="#550000" width="13" height="7" position="0 0 -0.05"></a-plane>
+      <a-plane color="#1a0000" width="12.8" height="6.8" position="0 0 0"></a-plane>
+      <a-text value="CONSERVADORES&#10;&#10;- Gobierno centralista&#10;- Iglesia: pilar del Estado&#10;- Ejercito con fueros&#10;- Educacion clerical&#10;- Economia proteccionista&#10;- Modelo: Europa monarquica&#10;&#10;Lideres: Alaman, Miramon,&#10;Zuloaga. Apoyaron a Maximiliano."
+        align="center" color="#ffcccc" width="11" position="0 0 0.08" wrap-count="38"></a-text>
+    </a-entity>
+
+    <a-entity position="-17 3.2 0" rotation="0 90 0">
+      <a-plane color="#005500" width="13" height="7" position="0 0 -0.05"></a-plane>
+      <a-plane color="#001500" width="12.8" height="6.8" position="0 0 0"></a-plane>
+      <a-text value="LIBERALES&#10;&#10;- Gobierno federalista&#10;- Iglesia separada del Estado&#10;- Ejercito sin fueros&#10;- Educacion laica y publica&#10;- Libre comercio&#10;- Modelo: EE.UU.&#10;&#10;Lideres: Juarez, Gomez Farias,&#10;Comonfort, Ocampo.&#10;Constitucion de 1857."
+        align="center" color="#ccffcc" width="11" position="0 0 0.08" wrap-count="38"></a-text>
+    </a-entity>
+
+    <a-entity position="0 3.2 16.5" rotation="0 180 0">
+      <a-plane color="#555500" width="13" height="6.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#151500" width="12.8" height="6.3" position="0 0 0"></a-plane>
+      <a-text value="CONSECUENCIAS HISTORICAS&#10;&#10;1858-1861: GUERRA DE REFORMA&#10;Liberales vencieron con Juarez.&#10;&#10;1862-1867: INTERVENCION FRANCESA&#10;Conservadores invitaron a Francia.&#10;&#10;1864-1867: MAXIMILIANO I&#10;Fue fusilado. Juarez restauro&#10;la Republica."
+        align="center" color="#ffffaa" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <a-entity position="0 1.6 0">
+      <a-box color="#cc0000" width="0.3" height="4.5" depth="0.3" position="1 0 0"
+        animation="property:rotation; to:0 360 0; loop:true; dur:8000; easing:linear"></a-box>
+      <a-box color="#00aa00" width="0.3" height="4.5" depth="0.3" position="-1 0 0"
+        animation="property:rotation; to:0 360 0; loop:true; dur:8000; easing:linear"></a-box>
+      <a-text value=" vs " align="center" color="#ffffff" width="4" position="0 3.5 0"></a-text>
+    </a-entity>
+  </a-entity>
+
+  <!-- ════════ SALA 5: PRIMER IMPERIO ════════ -->
+  <a-entity id="sala5" visible="false" position="0 0 -480">
+    <a-sky color="#0f0c00"></a-sky>
+    <a-plane color="#1a1500" rotation="-90 0 0" width="36" height="36" position="0 0 0"></a-plane>
+    <a-cylinder color="#5a4a00" radius="0.6" height="9" position="12 4.5 12"></a-cylinder>
+    <a-cylinder color="#5a4a00" radius="0.6" height="9" position="-12 4.5 12"></a-cylinder>
+    <a-cylinder color="#5a4a00" radius="0.6" height="9" position="12 4.5 -12"></a-cylinder>
+    <a-cylinder color="#5a4a00" radius="0.6" height="9" position="-12 4.5 -12"></a-cylinder>
+    <a-cylinder color="#8b6000" radius="0.8" height="0.4" position="12 9 12"></a-cylinder>
+    <a-cylinder color="#8b6000" radius="0.8" height="0.4" position="-12 9 12"></a-cylinder>
+    <a-cylinder color="#8b6000" radius="0.8" height="0.4" position="12 9 -12"></a-cylinder>
+    <a-cylinder color="#8b6000" radius="0.8" height="0.4" position="-12 9 -12"></a-cylinder>
+    <!-- MUROS SALA 5 -->
+    <a-box src="imp1.jpg" width="36" height="10" depth="0.3" position="0 5 -18" roughness="0.8"></a-box>
+    <a-box src="imp2.jpg" width="36" height="10" depth="0.3" position="0 5 18" rotation="0 180 0" roughness="0.8"></a-box>
+    <a-box src="imp3.jpg" width="0.3" height="10" depth="36" position="-18 5 0" roughness="0.8"></a-box>
+    <a-box src="imp4.jpg" width="0.3" height="10" depth="36" position="18 5 0" roughness="0.8"></a-box>
+    <!-- TECHO -->
+    <a-box src="map1.jpg" width="36" height="0.3" depth="36" position="0 10 0" roughness="0.9"></a-box>
+    <a-light type="ambient" color="#3a2800" intensity="0.6"></a-light>
+    <a-light type="point" color="#ffdd00" intensity="1.8" position="0 8 0" distance="35"></a-light>
+    <a-light type="point" color="#ff6600" intensity="0.5" position="12 4 -12" distance="20"></a-light>
+    <a-text value="  EL PRIMER IMPERIO DE MEXICO (1821-1823)  "
+      position="0 7.2 -15" align="center" color="#ffdd44" width="24"></a-text>
+
+    <a-entity position="0 3.2 -16.5">
+      <a-plane color="#6a5000" width="13" height="6.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#1a1400" width="12.8" height="6.3" position="0 0 0"></a-plane>
+      <a-text value="AGUSTIN I: PRIMER EMPERADOR&#10;&#10;Proclamado el 21 Jul 1822.&#10;Unica monarquia en America&#10;Latina tras independizarse.&#10;&#10;Plan de Iguala, Tres Garantias:&#10;Independencia - Religion - Union"
+        align="center" color="#ffeeaa" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <a-entity position="17 3.2 0" rotation="0 -90 0">
+      <a-plane color="#8b3a00" width="13" height="6.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#1a0a00" width="12.8" height="6.3" position="0 0 0"></a-plane>
+      <a-text value="TERRITORIO IMPERIAL&#10;&#10;El mayor de la historia de Mexico:&#10;- Todo Centroamerica&#10;- Texas y Alta California&#10;- Del Mississippi a Panama&#10;&#10;Mas de 4.5 millones de km2.&#10;Uno de los paises mas grandes&#10;del mundo en 1822."
+        align="center" color="#ffccaa" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <a-entity position="-17 3.2 0" rotation="0 90 0">
+      <a-plane color="#5a0000" width="13" height="7.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#1a0000" width="12.8" height="7.3" position="0 0 0"></a-plane>
+      <a-text value="LA CAIDA DEL IMPERIO&#10;&#10;- Crisis economica heredada&#10;- Disolvio el Congreso (1822)&#10;&#10;1 Feb 1823: Plan de Casa Mata&#10;(Santa Anna pide restaurar&#10;el Congreso).&#10;&#10;Mar 1823: Iturbide abdica.&#10;1824: Regresa y es fusilado."
+        align="center" color="#ffaaaa" width="11" position="0 0 0.08" wrap-count="38"></a-text>
+    </a-entity>
+
+    <a-entity position="0 3.2 16.5" rotation="0 180 0">
+      <a-plane color="#004400" width="13" height="6.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#001500" width="12.8" height="6.3" position="0 0 0"></a-plane>
+      <a-text value="CRONOLOGIA&#10;&#10;1821: Independencia consumada&#10;Jul 1822: Coronacion de Agustin I&#10;Oct 1822: Disuelve el Congreso&#10;Feb 1823: Plan de Casa Mata&#10;Mar 1823: Abdica al trono&#10;1824: Regresa y es fusilado&#10;&#10;1er Presidente: Guadalupe Victoria"
+        align="center" color="#aaffaa" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <!-- Trono central -->
+    <a-entity position="0 0 0">
+      <a-box color="#4a3500" width="2.5" height="0.3" depth="3" position="0 0.15 0"></a-box>
+      <a-box color="#5a4000" width="2" height="3.5" depth="1.5" position="0 1.75 -0.75"></a-box>
+      <a-box color="#6a5000" width="2.5" height="0.3" depth="3" position="0 3.65 0"></a-box>
+      <a-cylinder color="#8b6000" radius="0.3" height="0.8" position="0 4.45 0"></a-cylinder>
+      <a-text value="&#10;AGUSTIN I&#10;1822-1823" align="center" color="#ffdd00" width="4" position="0 5.5 0"></a-text>
+    </a-entity>
+  </a-entity>
+
+  <!-- ════════ SALA 6: CONSTITUCION DE 1824 ════════ -->
+  <a-entity id="sala6" visible="false" position="0 0 -600">
+    <a-sky color="#000f00"></a-sky>
+    <a-plane color="#001500" rotation="-90 0 0" width="36" height="36" position="0 0 0"></a-plane>
+    <a-cylinder color="#1a5a1a" radius="0.5" height="8" position="12 4 12"></a-cylinder>
+    <a-cylinder color="#1a5a1a" radius="0.5" height="8" position="-12 4 12"></a-cylinder>
+    <a-cylinder color="#1a5a1a" radius="0.5" height="8" position="12 4 -12"></a-cylinder>
+    <a-cylinder color="#1a5a1a" radius="0.5" height="8" position="-12 4 -12"></a-cylinder>
+    <!-- MUROS SALA 6 -->
+    <a-box src="o1.jpg" width="36" height="10" depth="0.3" position="0 5 -18" roughness="0.8"></a-box>
+    <a-box src="o2.jpg" width="36" height="10" depth="0.3" position="0 5 18" rotation="0 180 0" roughness="0.8"></a-box>
+    <a-box src="o3.jpg" width="0.3" height="10" depth="36" position="-18 5 0" roughness="0.8"></a-box>
+    <a-box src="o4.jpg" width="0.3" height="10" depth="36" position="18 5 0" roughness="0.8"></a-box>
+    <!-- TECHO -->
+    <a-box src="techo2.jpg" width="36" height="0.3" depth="36" position="0 10 0" roughness="0.9"></a-box>
+    <a-light type="ambient" color="#003300" intensity="0.7"></a-light>
+    <a-light type="point" color="#44ff44" intensity="1.0" position="0 7 0" distance="30"></a-light>
+    <a-light type="point" color="#ffffff" intensity="0.7" position="0 4 0" distance="22"></a-light>
+    <a-text value="  CONSTITUCION FEDERAL DE 1824  "
+      position="0 7.2 -15" align="center" color="#aaffaa" width="22"></a-text>
+
+    <a-entity position="0 3.2 -16.5">
+      <a-plane color="#2a6a2a" width="13" height="6.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#001500" width="12.8" height="6.3" position="0 0 0"></a-plane>
+      <a-text value="PRIMERA CONSTITUCION&#10;&#10;Promulgada: 4 Oct 1824.&#10;&#10;Se baso en:&#10;- Constitucion de EE.UU.&#10;- Constitucion de Cadiz 1812&#10;- Decreto de Apatzingan 1814&#10;&#10;1er Pdte: Guadalupe Victoria&#10;(1825-1829)"
+        align="center" color="#ccffcc" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <a-entity position="17 3.2 0" rotation="0 -90 0">
+      <a-plane color="#1a6a1a" width="13" height="7.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#001500" width="12.8" height="7.3" position="0 0 0"></a-plane>
+      <a-text value="PUNTOS CLAVE&#10;&#10;- Republica Federal&#10;- 19 estados + 5 territorios&#10;- 3 poderes: Ejecutivo,&#10;  Legislativo y Judicial&#10;- Catolicismo oficial&#10;- Libertad de imprenta&#10;- 171 articulos en 7 titulos"
+        align="center" color="#aaffaa" width="11" position="0 0 0.08" wrap-count="38"></a-text>
+    </a-entity>
+
+    <a-entity position="-17 3.2 0" rotation="0 90 0">
+      <a-plane color="#004400" width="13" height="7" position="0 0 -0.05"></a-plane>
+      <a-plane color="#001500" width="12.8" height="6.8" position="0 0 0"></a-plane>
+      <a-text value="ESTRUCTURA DE GOBIERNO&#10;&#10;EJECUTIVO: Presidente&#10;LEGISLATIVO: Diputados + Senado&#10;JUDICIAL: Suprema Corte&#10;&#10;Cada estado elegia:&#10;- Gobernador propio&#10;- Congreso local&#10;- Constitucion estatal"
+        align="center" color="#ccffcc" width="11" position="0 0 0.08" wrap-count="38"></a-text>
+    </a-entity>
+
+    <a-entity position="0 3.2 16.5" rotation="0 180 0">
+      <a-plane color="#003a00" width="13" height="6.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#001000" width="12.8" height="6.3" position="0 0 0"></a-plane>
+      <a-text value="LEGADO&#10;&#10;Limitaciones:&#10;- Sin derechos individuales&#10;- Mantuvo fueros Iglesia/Ejercito&#10;- Solo catolicismo permitido&#10;&#10;Logros:&#10;- Bases del federalismo&#10;- Instituciones que perduran&#10;- Influyo en Constitucion 1917"
+        align="center" color="#aaffaa" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <!-- Libro central giratorio -->
+    <a-entity position="0 0 0">
+      <a-box color="#2a5a2a" width="3.5" height="0.4" depth="4.5" position="0 1.2 0"
+        animation="property:rotation; to:0 360 0; loop:true; dur:12000; easing:linear"></a-box>
+      <a-cylinder color="#1a4a1a" radius="0.1" height="2.5" position="0 0 0"></a-cylinder>
+      <a-text value="&#10;CONSTITUCION&#10;FEDERAL 1824" align="center" color="#aaffaa" width="5" position="0 3 0"></a-text>
+    </a-entity>
+  </a-entity>
+
+  <!-- ════════ SALA 7: REFORMAS DE 1833 ════════ -->
+  <a-entity id="sala7" visible="false" position="0 0 -720">
+    <a-sky color="#0f0800"></a-sky>
+    <a-plane color="#1a1000" rotation="-90 0 0" width="36" height="36" position="0 0 0"></a-plane>
+    <a-cylinder color="#4a3000" radius="0.5" height="8" position="12 4 12"></a-cylinder>
+    <a-cylinder color="#4a3000" radius="0.5" height="8" position="-12 4 12"></a-cylinder>
+    <a-cylinder color="#4a3000" radius="0.5" height="8" position="12 4 -12"></a-cylinder>
+    <a-cylinder color="#4a3000" radius="0.5" height="8" position="-12 4 -12"></a-cylinder>
+    <!-- MUROS SALA 7 -->
+    <a-box src="z1.jpg" width="36" height="10" depth="0.3" position="0 5 -18" roughness="0.8"></a-box>
+    <a-box src="z2.jpg" width="36" height="10" depth="0.3" position="0 5 18" rotation="0 180 0" roughness="0.8"></a-box>
+    <a-box src="z3.jpg" width="0.3" height="10" depth="36" position="-18 5 0" roughness="0.8"></a-box>
+    <a-box src="z4.jpg" width="0.3" height="10" depth="36" position="18 5 0" roughness="0.8"></a-box>
+    <!-- TECHO -->
+    <a-box src="techo2.jpg" width="36" height="0.3" depth="36" position="0 10 0" roughness="0.9"></a-box>
+    <a-light type="ambient" color="#3a2500" intensity="0.7"></a-light>
+    <a-light type="point" color="#ffaa00" intensity="1.3" position="0 7 0" distance="30"></a-light>
+    <a-text value=" LAS REFORMAS DE 1833 "
+      position="0 7.2 -15" align="center" color="#ffcc66" width="20"></a-text>
+
+    <a-entity position="0 3.2 -16.5">
+      <a-plane color="#5a3500" width="13" height="6.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#1a1000" width="12.8" height="6.3" position="0 0 0"></a-plane>
+      <a-text value="CONTEXTO&#10;&#10;1833: Santa Anna gano pero&#10;"se enfermo" y se retiro.&#10;&#10;Valentin Gomez Farias asumio&#10;la presidencia 4 veces y lanzo&#10;las reformas mas radicales&#10;contra la Iglesia y el Ejercito."
+        align="center" color="#ffeeaa" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <a-entity position="17 3.2 0" rotation="0 -90 0">
+      <a-plane color="#005a00" width="13" height="8" position="0 0 -0.05"></a-plane>
+      <a-plane color="#001500" width="12.8" height="7.8" position="0 0 0"></a-plane>
+      <a-text value="REFORMAS DE 1833&#10;&#10;- Elimino el DIEZMO&#10;- Quito monopolio educativo&#10;  a la Iglesia&#10;- Creo educacion laica publica&#10;- Fundo la Biblioteca Nacional&#10;- Suspendio ordenes monasticas&#10;- Libertad de prensa&#10;- Abolio pena de muerte politica&#10;- Secularizo bienes del clero"
+        align="center" color="#aaffaa" width="11" position="0 0 0.08" wrap-count="38"></a-text>
+    </a-entity>
+
+    <a-entity position="-17 3.2 0" rotation="0 90 0">
+      <a-plane color="#5a0000" width="13" height="7" position="0 0 -0.05"></a-plane>
+      <a-plane color="#1a0000" width="12.8" height="6.8" position="0 0 0"></a-plane>
+      <a-text value="REACCION CONSERVADORA&#10;&#10;Iglesia y Ejercito exigieron&#10;el regreso de Santa Anna&#10;bajo el lema: RELIGION Y FUEROS.&#10;&#10;Mayo 1834: Santa Anna anulo&#10;TODAS las reformas.&#10;&#10;Fracasaron, pero sentaron bases&#10;para las Leyes de Reforma&#10;de Juarez (20 anos despues)."
+        align="center" color="#ffaaaa" width="11" position="0 0 0.08" wrap-count="38"></a-text>
+    </a-entity>
+
+    <a-entity position="0 3.2 16.5" rotation="0 180 0">
+      <a-plane color="#005555" width="13" height="6.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#001515" width="12.8" height="6.3" position="0 0 0"></a-plane>
+      <a-text value="GOMEZ FARIAS&#10;PADRE DEL LIBERALISMO&#10;&#10;- Medico de Guadalajara&#10;- 1781 - 1858&#10;- Precursor de Benito Juarez&#10;- Exiliado multiples veces&#10;- Modernizo la educacion&#10;- Benemerito de la Patria (1868)&#10;- Sus restos: Rotonda de&#10;  Personas Ilustres"
+        align="center" color="#aaffff" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <a-entity position="0 0 0">
+      <a-octahedron color="#ffaa00" radius="1.8"
+        animation="property:rotation; to:360 360 0; loop:true; dur:6000; easing:linear"></a-octahedron>
+      <a-text value="&#10;PRE-REFORMA&#10;1833" align="center" color="#ffcc44" width="4" position="0 3.5 0"></a-text>
+    </a-entity>
+  </a-entity>
+
+  <!-- ════════ SALA 8: CONFLICTOS INTERNACIONALES ════════ -->
+  <a-entity id="sala8" visible="false" position="0 0 -840">
+    <a-sky color="#0f0000"></a-sky>
+    <a-plane color="#1a0000" rotation="-90 0 0" width="36" height="36" position="0 0 0"></a-plane>
+    <a-cylinder color="#5a0000" radius="0.5" height="8" position="12 4 12"></a-cylinder>
+    <a-cylinder color="#5a0000" radius="0.5" height="8" position="-12 4 12"></a-cylinder>
+    <a-cylinder color="#5a0000" radius="0.5" height="8" position="12 4 -12"></a-cylinder>
+    <a-cylinder color="#5a0000" radius="0.5" height="8" position="-12 4 -12"></a-cylinder>
+    <!-- MUROS SALA 8 -->
+    <a-box src="eu1.jpg" width="36" height="10" depth="0.3" position="0 5 -18" roughness="0.8"></a-box>
+    <a-box src="eu2.jpg" width="36" height="10" depth="0.3" position="0 5 18" rotation="0 180 0" roughness="0.8"></a-box>
+    <a-box src="eu3.jpg" width="0.3" height="10" depth="36" position="-18 5 0" roughness="0.8"></a-box>
+    <a-box src="eu4.jpg" width="0.3" height="10" depth="36" position="18 5 0" roughness="0.8"></a-box>
+    <!-- TECHO -->
+    <a-box src="techo2.jpg" width="36" height="0.3" depth="36" position="0 10 0" roughness="0.9"></a-box>
+    <a-light type="ambient" color="#3a0000" intensity="0.6"></a-light>
+    <a-light type="point" color="#ff2200" intensity="1.5" position="0 7 0" distance="32"></a-light>
+    <a-text value=" CONFLICTOS INTERNACIONALES (1838-1848) "
+      position="0 7.2 -15" align="center" color="#ff8888" width="24"></a-text>
+
+    <a-entity position="0 3.2 -16.5">
+      <a-plane color="#6a0000" width="13" height="6.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#1a0000" width="12.8" height="6.3" position="0 0 0"></a-plane>
+      <a-text value="MEXICO BAJO ATAQUE&#10;&#10;El Mexico joven sufrio tres&#10;grandes agresiones:&#10;&#10;1. 1836: Republica de Texas&#10;2. 1838-39: Guerra de los&#10;   Pasteles (Francia)&#10;3. 1846-48: Guerra vs EE.UU."
+        align="center" color="#ffcccc" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <a-entity position="17 3.2 0" rotation="0 -90 0">
+      <a-plane color="#6a5500" width="13" height="8" position="0 0 -0.05"></a-plane>
+      <a-plane color="#1a1500" width="12.8" height="7.8" position="0 0 0"></a-plane>
+      <a-text value="GUERRA DE LOS PASTELES 1838&#10;&#10;Francia exigio 600,000 pesos&#10;por danos a sus comerciantes.&#10;Mexico se nego a pagar.&#10;&#10;Francia ocupo Veracruz.&#10;Santa Anna perdio una pierna&#10;en la batalla (dic 1838).&#10;&#10;1839: Mexico acepto pagar&#10;y Francia retiro sus tropas."
+        align="center" color="#ffeeaa" width="11" position="0 0 0.08" wrap-count="38"></a-text>
+    </a-entity>
+
+    <a-entity position="-17 3.2 0" rotation="0 90 0">
+      <a-plane color="#5a0000" width="13" height="7" position="0 0 -0.05"></a-plane>
+      <a-plane color="#1a0000" width="12.8" height="6.8" position="0 0 0"></a-plane>
+      <a-text value="GUERRA MEXICO-EE.UU. 1846-48&#10;&#10;EE.UU. anexo Texas (1845).&#10;Mexico nunca lo reconocio.&#10;&#10;Sep 1847: Caida de Chapultepec.&#10;Los Ninos Heroes murieron&#10;defendiendo el Castillo.&#10;&#10;Tratado Guadalupe Hidalgo:&#10;Mexico perdio mas del 50%&#10;de su territorio."
+        align="center" color="#ffaaaa" width="11" position="0 0 0.08" wrap-count="38"></a-text>
+    </a-entity>
+
+    <a-entity position="0 3.2 16.5" rotation="0 180 0">
+      <a-plane color="#004400" width="13" height="6.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#001500" width="12.8" height="6.3" position="0 0 0"></a-plane>
+      <a-text value="CONSECUENCIAS&#10;&#10;Mexico perdio 2.4 millones km2&#10;por solo $15 millones.&#10;&#10;1853: Santa Anna vendio&#10;La Mesilla por $7 millones.&#10;&#10;La humillacion catalizo la&#10;Revolucion de Ayutla (1854)&#10;que expulso a Santa Anna."
+        align="center" color="#aaffaa" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <!-- Globo de crisis -->
+    <a-entity position="0 1.6 0">
+      <a-sphere color="#cc0000" radius="2.2" opacity="0.25"
+        animation="property:scale; to:1.4 1.4 1.4; dir:alternate; loop:true; dur:2500"></a-sphere>
+      <a-sphere color="#ff4444" radius="0.5" opacity="0.8"
+        animation="property:position; to:0 3 0; dir:alternate; loop:true; dur:2000"></a-sphere>
+      <a-text value=" TERRITORIO PERDIDO:&#10;+50% del pais" align="center" color="#ff8888" width="5" position="0 4 0"></a-text>
+    </a-entity>
+  </a-entity>
+
+  <!-- ════════ SALA 9: CRISIS ECONOMICA ════════ -->
+  <a-entity id="sala9" visible="false" position="0 0 -960">
+    <a-sky color="#050505"></a-sky>
+    <a-plane color="#0a0a0a" rotation="-90 0 0" width="36" height="36" position="0 0 0"></a-plane>
+    <a-cylinder color="#333333" radius="0.5" height="8" position="12 4 12"></a-cylinder>
+    <a-cylinder color="#333333" radius="0.5" height="8" position="-12 4 12"></a-cylinder>
+    <a-cylinder color="#333333" radius="0.5" height="8" position="12 4 -12"></a-cylinder>
+    <a-cylinder color="#333333" radius="0.5" height="8" position="-12 4 -12"></a-cylinder>
+    <!-- MUROS SALA 9 -->
+    <a-box src="d1.jpg" width="36" height="10" depth="0.3" position="0 5 -18" roughness="0.8"></a-box>
+    <a-box src="d2.jpg" width="36" height="10" depth="0.3" position="0 5 18" rotation="0 180 0" roughness="0.8"></a-box>
+    <a-box src="d3.jpg" width="0.3" height="10" depth="36" position="-18 5 0" roughness="0.8"></a-box>
+    <a-box src="d4.jpg" width="0.3" height="10" depth="36" position="18 5 0" roughness="0.8"></a-box>
+    <!-- TECHO -->
+    <a-box src="techo2.jpg" width="36" height="0.3" depth="36" position="0 10 0" roughness="0.9"></a-box>
+    <a-light type="ambient" color="#222222" intensity="0.8"></a-light>
+    <a-light type="point" color="#aaaaaa" intensity="1.1" position="0 7 0" distance="30"></a-light>
+    <a-light type="point" color="#ffaa44" intensity="0.5" position="8 4 0" distance="20"></a-light>
+    <a-text value="  LA CRISIS ECONOMICA DE MEXICO (1810-1876)  "
+      position="0 7.2 -15" align="center" color="#cccccc" width="26"></a-text>
+
+    <a-entity position="0 3.2 -16.5">
+      <a-plane color="#444444" width="13" height="6.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#0a0a0a" width="12.8" height="6.3" position="0 0 0"></a-plane>
+      <a-text value="ECONOMIA EN RUINAS&#10;&#10;Herencia de 11 anos de guerra:&#10;- 1/6 de la poblacion murio&#10;- Deuda externa enorme&#10;- Minas destruidas&#10;- Produccion minera: -56%&#10;- Comercio con Europa paralizado&#10;- Sin capital para reinvertir"
+        align="center" color="#dddddd" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <a-entity position="17 3.2 0" rotation="0 -90 0">
+      <a-plane color="#3a3a3a" width="13" height="7.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#0a0a0a" width="12.8" height="7.3" position="0 0 0"></a-plane>
+      <a-text value="PROBLEMAS ESTRUCTURALES&#10;&#10;- Solo mineria y agricultura&#10;- Sin mercado interno&#10;- Sin caminos ni ferrocarriles&#10;- Deuda impagable&#10;- Iglesia rica, Estado quebrado&#10;- Inestabilidad = sin inversion"
+        align="center" color="#cccccc" width="11" position="0 0 0.08" wrap-count="38"></a-text>
+    </a-entity>
+
+    <a-entity position="-17 3.2 0" rotation="0 90 0">
+      <a-plane color="#2a2a2a" width="13" height="7.5" position="0 0 -0.05"></a-plane>
+      <a-plane color="#0a0a0a" width="12.8" height="7.3" position="0 0 0"></a-plane>
+      <a-text value="IMPACTO DE LOS CONFLICTOS&#10;&#10;- Cada golpe arruinaba comercio&#10;- Guerra vs EE.UU.: perdimos&#10;  los territorios mas ricos&#10;- 50 gobiernos = 50 politicas&#10;  distintas sin resultados&#10;- Ninguna duro lo suficiente"
+        align="center" color="#cccccc" width="11" position="0 0 0.08" wrap-count="38"></a-text>
+    </a-entity>
+
+    <a-entity position="0 3.2 16.5" rotation="0 180 0">
+      <a-plane color="#1a4a1a" width="13" height="7" position="0 0 -0.05"></a-plane>
+      <a-plane color="#001500" width="12.8" height="6.8" position="0 0 0"></a-plane>
+      <a-text value="CAMINO A LA RECUPERACION&#10;&#10;- Leyes de Reforma (1857-67):&#10;  bienes del clero al Estado&#10;- Juarez derrota a Maximiliano&#10;- Porfirio Diaz (1876):&#10;  primer crecimiento sostenido&#10;- Ferrocarriles e inversion&#10;&#10;1876: inicio de la estabilidad."
+        align="center" color="#aaffaa" width="11" position="0 0 0.08" wrap-count="42"></a-text>
+    </a-entity>
+
+    <!-- Grafica de barras simbolica -->
+    <a-entity position="0 0 0">
+      <a-box color="#222222" width="0.5" height="1.2" depth="0.4" position="-4 0.6 0"></a-box>
+      <a-box color="#333333" width="0.5" height="0.7" depth="0.4" position="-3 0.35 0"></a-box>
+      <a-box color="#444444" width="0.5" height="1.0" depth="0.4" position="-2 0.5 0"></a-box>
+      <a-box color="#555555" width="0.5" height="1.5" depth="0.4" position="-1 0.75 0"></a-box>
+      <a-box color="#666666" width="0.5" height="2.0" depth="0.4" position="0 1.0 0"></a-box>
+      <a-box color="#888888" width="0.5" height="2.8" depth="0.4" position="1 1.4 0"></a-box>
+      <a-box color="#aaaaaa" width="0.5" height="3.8" depth="0.4" position="2 1.9 0"></a-box>
+      <a-box color="#dddddd" width="0.5" height="5" depth="0.4" position="3 2.5 0"></a-box>
+      <a-box color="#88ff88" width="0.5" height="6.5" depth="0.4" position="4 3.25 0"></a-box>
+      <a-text value="CRISIS -> -> -> RECUPERACION" align="center" color="#888888" width="7" position="0 5 0"></a-text>
+    </a-entity>
+  </a-entity>
+
+</a-scene>
+<script>
+  // ════════════════════════════════════════════════════════════════
+  //  SISTEMA DE NAVEGACION CON UNA SOLA CAMARA GLOBAL
+  // ════════════════════════════════════════════════════════════════
+  let salaActual = null;
+
+  // Posiciones globales de cada sala (segun su atributo position)
+  const posicionesSala = {
+    sala1: { x: 0, y: 0, z: 0 },
+    sala2: { x: 0, y: 0, z: -120 },
+    sala3: { x: 0, y: 0, z: -240 },
+    sala4: { x: 0, y: 0, z: -360 },
+    sala5: { x: 0, y: 0, z: -480 },
+    sala6: { x: 0, y: 0, z: -600 },
+    sala7: { x: 0, y: 0, z: -720 },
+    sala8: { x: 0, y: 0, z: -840 },
+    sala9: { x: 0, y: 0, z: -960 }
+  };
+
+  function entrar() {
+    console.log('Entrando al museo');
+    document.getElementById('splash').style.display = 'none';
+    document.getElementById('scene').style.display = 'block';
+    document.getElementById('room-name').style.display = 'block';
+    document.getElementById('controls').style.display = 'block';
+    document.getElementById('minimap').style.display = 'block';
+    document.getElementById('nav-panel').style.display = 'flex';
+
+    // Ocultar todas las salas
+    for (let i = 1; i <= 9; i++) {
+      const sala = document.getElementById('sala' + i);
+      if (sala) sala.setAttribute('visible', 'false');
+    }
+
+    // Mostrar sala 1
+    const sala1 = document.getElementById('sala1');
+    if (sala1) sala1.setAttribute('visible', 'true');
+    salaActual = 'sala1';
+    document.getElementById('room-name').textContent = 'Sala 1 — Las 4 Etapas de la Independencia';
+
+    // Posicionar la camara global en la entrada de sala1
+    const camaraGlobal = document.getElementById('camara-global');
+    if (camaraGlobal) {
+      // Entrada de sala1: (0, 1.6, 8) en coordenadas locales, pero sala1 esta en (0,0,0)
+      camaraGlobal.setAttribute('position', { x: 0, y: 1.6, z: 8 });
+    }
+  }
+
+  function irASala(destino, nombre) {
+    if (!destino || destino === salaActual) {
+      console.log('Cambio ignorado: mismo destino o nulo');
+      return;
+    }
+    console.log('Cambiando a', destino, '-', nombre);
+
+    // Ocultar sala actual
+    if (salaActual) {
+      const salaAnterior = document.getElementById(salaActual);
+      if (salaAnterior) {
+        salaAnterior.setAttribute('visible', 'false');
+        console.log('Sala oculta:', salaActual);
+      }
+    }
+
+    // Mostrar nueva sala
+    const salaDest = document.getElementById(destino);
+    if (salaDest) {
+      salaDest.setAttribute('visible', 'true');
+      console.log('Sala mostrada:', destino);
+    } else {
+      console.error('ERROR: Sala no encontrada:', destino);
+      return;
+    }
+
+    salaActual = destino;
+    document.getElementById('room-name').textContent = nombre;
+
+    // Calcular posicion global de la entrada de la nueva sala
+    const posSala = posicionesSala[destino];
+    if (!posSala) {
+      console.error('No hay posicion registrada para', destino);
+      return;
+    }
+
+    // La entrada local es (0, 1.6, 8), sumamos la posicion de la sala
+    const x = posSala.x + 0;
+    const y = posSala.y + 1.6;
+    const z = posSala.z + 8;
+
+    // Mover la camara global
+    const camaraGlobal = document.getElementById('camara-global');
+    if (camaraGlobal) {
+      camaraGlobal.setAttribute('position', { x: x, y: y, z: z });
+      console.log(`Camara movida a (${x}, ${y}, ${z})`);
+    } else {
+      console.error('No se encontro la camara global');
+    }
+  }
+
+
+  // ════════════════════════════════════════════════════════════════
+  //  SISTEMA DE VITRINAS INTERACTIVAS
+  // ════════════════════════════════════════════════════════════════
+  const vitrinaData = {
+    campana: {
+      titulo: "Campana de Dolores",
+      fecha: "16 de Septiembre de 1810",
+      img: "img_campana.jpg",
+      emoji: "🔔",
+      desc: "La Campana de Dolores fue tocada por el cura Miguel Hidalgo en la madrugada del 16 de septiembre de 1810 para convocar al pueblo de Dolores, Guanajuato. Su repique inicio el movimiento de Independencia de Mexico. Hoy, una replica de esta campana cuelga en el Palacio Nacional y es tocada cada 15 de septiembre por el Presidente de la Republica."
+    },
+    espada: {
+      titulo: "Espada de Hidalgo",
+      fecha: "1810 - 1811",
+      img: "img_espada.jpg",
+      emoji: "⚔",
+      desc: "Miguel Hidalgo y Costilla porto su espada durante la campana insurgente de 1810-1811. Simbolo del inicio de la lucha armada por la independencia, Hidalgo encabezo un ejercito de mas de 80,000 hombres tomando ciudades como Guanajuato y Valladolid. Fue capturado y ejecutado el 30 de julio de 1811 en Chihuahua."
+    },
+    acta: {
+      titulo: "Acta de Independencia",
+      fecha: "28 de Septiembre de 1821",
+      img: "img_acta.jpg",
+      emoji: "📜",
+      desc: "El Acta de Independencia del Imperio Mexicano fue firmada el 28 de septiembre de 1821 por los miembros de la Junta Soberana Provisional. Con este documento Mexico se declaro nacion libre y soberana. El original se conserva en el Archivo General de la Nacion en la Ciudad de Mexico."
+    },
+    estandarte: {
+      titulo: "Estandarte de la Virgen de Guadalupe",
+      fecha: "1810",
+      img: "img_estandarte.jpg",
+      emoji: "🏴",
+      desc: "Hidalgo tomo del santuario de Atotonilco una imagen de la Virgen de Guadalupe y la convirtio en el estandarte del ejercito insurgente. Este simbolo religioso unio a indigenas, mestizos y criollos bajo una misma causa. La Virgen de Guadalupe se convirtio en el simbolo nacional de la lucha por la independencia."
+    },
+    poinsett: {
+      titulo: "Joel Roberts Poinsett",
+      fecha: "2 Mar 1779 - 12 Dic 1851",
+      img: "img_poinsett.jpg",
+      emoji: "🇺🇸",
+      desc: "Diplomatico y botanico estadounidense. Fue el primer embajador de EE.UU. en Mexico (1825-1829). Fundo la Logia Yorkina en Mexico con el objetivo de extender la influencia de EE.UU. y promover el liberalismo federalista. Su intervencion en la politica mexicana fue tan notoria que fue expulsado del pais en 1829. Es tambien famoso por llevar a EE.UU. la flor de nochebuena, que lleva su nombre: Poinsettia.",
+      biblio: "Fuentes: Bosch Garcia, C. (1947). La Historia Diplomatica de Mexico. Ward, H.G. (1828). Mexico in 1827."
+    },
+    codorniu: {
+      titulo: "Dr. Manuel Codorniu Ferreras",
+      fecha: "1788 - 1857",
+      img: "img_codorniu.jpg",
+      emoji: "⚜",
+      desc: "Medico militar espanol que llego a Mexico con las tropas realistas. Fue uno de los principales lideres de la Logia Escocesa en Mexico, representando los intereses conservadores y centralistas. Defensor de la aristocracia criolla y los privilegios del clero y el ejercito. Su logia fue el origen del Partido Conservador mexicano que domino la politica del siglo XIX junto a los liberales yorkinos.",
+      biblio: "Fuentes: Arrangoiz, F. (1872). Mexico desde 1808 hasta 1867. Zavala, L. (1831). Ensayo historico de las revoluciones de Mexico."
+    },
+    sello_york: {
+      titulo: "Sello de la Logia Yorkina",
+      fecha: "Fundada en 1825",
+      img: "img_sello_york.jpg",
+      emoji: "⭐",
+      desc: "El sello oficial de la Logia Yorkina de Mexico, fundada en 1825 con apoyo del diplomatico Joel Poinsett. Representaba los valores liberales y federalistas: independencia, progreso y republica. Sus miembros usaban este sello para autenticar documentos secretos y comunicaciones entre logias."
+    },
+    sello_escocia: {
+      titulo: "Sello de la Logia Escocesa",
+      fecha: "Introducida en 1813",
+      img: "img_sello_escocia.jpg",
+      emoji: "⚜",
+      desc: "El sello de la Logia Escocesa, introducida en Mexico con las tropas espanolas en 1813. Simbolizaba el orden, la jerarquia y la tradicion. Sus miembros eran principalmente de la aristocracia criolla, el alto clero y militares. Esta logia fue el nucleo del futuro Partido Conservador."
+    },
+    doc_politico: {
+      titulo: "Acta Fundacional Logia York 1825",
+      fecha: "1825, Ciudad de Mexico",
+      img: "img_doc_york.jpg",
+      emoji: "📜",
+      desc: "Documento que certifica la fundacion oficial de la Gran Logia Yorkina de Mexico en 1825. Firmado por sus fundadores, entre ellos Vicente Guerrero y Lorenzo de Zavala. Establecia los principios liberales y federalistas que guiarian a sus miembros en la politica nacional."
+    },
+    periodico_sol: {
+      titulo: "Periodico El Sol",
+      fecha: "1821 - 1832",
+      img: "img_el_sol.jpg",
+      emoji: "☀",
+      desc: "El Sol fue el organo de prensa oficial de la Logia Escocesa en Mexico. Fundado en 1821, fue una de las publicaciones politicas mas influyentes del Mexico independiente. Defendia el centralismo, los fueros del clero y el ejercito, y criticaba duramente a los yorkinos. La guerra de panfletos entre El Sol y El Aguila Mexicana (yorkina) fue la primera guerra mediatica de Mexico."
+    },
+    hidalgo: {
+      titulo: "Miguel Hidalgo y Costilla",
+      fecha: "8 Mayo 1753 - 30 Julio 1811",
+      img: "img_hidalgo.jpg",
+      emoji: "👤",
+      desc: "Padre de la Patria mexicana. Nacio en Guanajuato y fue ordenado sacerdote en 1778. Como parroco de Dolores se preocupo por el bienestar de los indigenas ensenandoles oficios y cultivando vinas. El 16 de septiembre de 1810 dio el Grito de Dolores iniciando la guerra de Independencia. Encabezo un ejercito de mas de 80,000 personas tomando Guanajuato y avanzando hacia la capital. Fue capturado, degradado por la Inquisicion y fusilado el 30 de julio de 1811 en Chihuahua. Su cabeza fue exhibida en la Alhondiga de Granaditas por 10 anos como escarmiento. Hoy es considerado el Padre de la Patria y su nombre esta escrito en letras de oro en el Congreso de la Union.",
+      biblio: "Fuentes: Bustamante, C.M. (1821). Cuadro historico de la revolucion. Lucas Alaman (1849). Historia de Mexico. Alamán, L. Diccionario Universal de Historia y Geografia (1853)."
+    }
+  };
+
+  function abrirVitrina(id) {
+    const d = vitrinaData[id];
+    if (!d) return;
+    document.getElementById('v-titulo').textContent = d.titulo;
+    document.getElementById('v-fecha').textContent = d.fecha;
+    document.getElementById('v-desc').textContent = d.desc;
+    const wrap = document.getElementById('v-img-wrap');
+    // Si existe imagen la muestra, si no usa emoji
+    const img = new Image();
+    img.onload = () => { wrap.innerHTML = '<img src="' + d.img + '" alt="' + d.titulo + '">'; };
+    img.onerror = () => { wrap.innerHTML = '<div class="sin-img">' + d.emoji + '</div>'; };
+    img.src = d.img;
+    // Mostrar bibliografia si existe
+    const biblioEl = document.getElementById('v-biblio');
+    if (d.biblio) {
+      biblioEl.textContent = d.biblio;
+      biblioEl.style.display = 'block';
+    } else {
+      biblioEl.style.display = 'none';
+    }
+    document.getElementById('vitrina-modal').classList.add('active');
+    // Liberar pointer lock para que el mouse funcione en el modal
+    if (document.pointerLockElement) document.exitPointerLock();
+  }
+
+  function cerrarVitrina(e) {
+    if (e && e.target !== document.getElementById('vitrina-modal') && e.target !== document.getElementById('vitrina-close')) return;
+    document.getElementById('vitrina-modal').classList.remove('active');
+  }
+
+  // Eliminamos los efectos hover de portales porque ya no hay
+</script>
+</body>
+</html>
